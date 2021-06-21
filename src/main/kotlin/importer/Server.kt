@@ -4,8 +4,10 @@ import com.sun.net.httpserver.HttpServer
 import java.lang.Exception
 import java.net.InetSocketAddress
 
-class Server(private val uri: String) {
-    fun create(): HttpServer {
+object Server {
+    private lateinit var currentServer: HttpServer
+
+    fun create(uri: String) {
         if (!uri.contains("http://")) {
             throw Exception("redirect_uri must contain 'http://'.")
         }
@@ -14,7 +16,7 @@ class Server(private val uri: String) {
 
         val domain = uri.substring(http.length, uri.lastIndexOf(':'))
 
-        val port = kotlin.run {
+        val port = run {
             val initialString = uri.substring(uri.lastIndexOf(':') + 1)
             try {
                 initialString.substring(0, initialString.indexOf('/'))
@@ -30,8 +32,13 @@ class Server(private val uri: String) {
         }
 
         val server = HttpServer.create(InetSocketAddress(domain, port.toInt()), 0)
-        server.createContext(contextAction, MyHttpHandler())
+        server.createContext(contextAction, MyHttpHandler)
 
-        return server.also { currentServer = it }
+        currentServer = server
+        currentServer.start()
+    }
+
+    fun shutDown() {
+        currentServer.stop(0)
     }
 }
