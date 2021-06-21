@@ -7,13 +7,34 @@ O app cria um server local temporário e então abre uma tela de autenticação 
 
 Processo oficial descrito em: https://developers.deezer.com/api/oauth
 
+## Extensões de arquivos de saída atualmente suportados:
+* txt
+* csv
+
 ## Como usar:
+
+Baixe o zip da última release desse projeto, extraia, rode o DeezerPlaylistImporter.jar (ou o import.bat caso esteja setando algum parâmetro), logue com sua conta da Deezer e pronto.
+
+Você pode editar o import.bat para setar algum desses parâmetros abaixo, mas então precisaria executar o app rodando esse import.bat.\
+Obs: Mantenha o ^ no final das linhas.\
+Obs: O import.bat precisa estar na mesma pasta do DeezerPlaylistImporter.jar
+
 ### Parâmetros Opcionais:
-* saveWithName - Define o nome do arquivo de saída com as playlists e músicas (padrão 'tracks')
-* saveAs - Define a extensão do arquivo de saída (padrão 'txt')
-* importFilePath - Define o diretório onde o arquivo de saída será gerado (padrão diretório atual do app)
-* playlistToImport - Define uma playlist específica para ser importada através do Nome (padrão todas)
+* saveWithName - Define o nome do arquivo de saída com as playlists e músicas.
+    * Exemplo - saveWithName="Deezer Songs"
+    * Padrão - 'tracks' 
+* saveAs - Define a extensão do arquivo de saída.
+    * Exemplo - saveAs="csv"
+    * Padrão - 'txt'
+* exportFilePath - Define o diretório onde o arquivo de saída será gerado.
+    * Exemplo - importFilePath="C:/Users/MeuUsuario/Music"
+    * Padrão - diretório atual do app (./)
+* playlistTracksPerFile - Define a quantidade de músicas exportadas por arquivo, útil para exportar playlist para um app de streaming específico (através do [Soundiiz](https://soundiiz.com/pt/) por exemplo, cuja versão Free só aceita 200 músicas por export). 
+    * Exemplo - playlistTracksPerFile="200"
+    * Padrão - todas (sem valor)
+* playlistToImport - Define uma playlist específica para ser importada através do Nome.
+    * Exemplo - playlistToImport="Loved Tracks"
+    * Padrão - todas (sem valor)
 
-Baixe o zip que está na release desse projeto, extraia na mesma pasta, rode o import.bat, logue com sua conta da Deezer e pronto. 
-
-Você pode editar o import.bat para setar algum desses parâmetros acima.
+Parâmetros sem valor ('saveAs=', por exemplo) serão considerados o padrão.\
+Prefira sempre passar os parâmetros dentro de aspas "".
