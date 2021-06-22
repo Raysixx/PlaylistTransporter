@@ -6,40 +6,53 @@ import java.io.PrintWriter
 import kotlin.math.ceil
 
 object Exporter {
-    private val playlistInFile = mutableMapOf<Playlist, MutableList<Int>>()
+    private val playlistInFile = mutableMapOf<Playlist, MutableSet<Int>>()
+    private val filesAlreadyWithHeader = mutableSetOf<String>()
 
     fun exportPlaylistsToFile(playlists: List<Playlist>) {
-        eraseOldFiles()
+        eraseOldFiles(playlists)
 
-        val file = File("${exportFilePath}$saveWithName.$saveAs")
-        file.createNewFile()
-
-        export(file, playlists)
+        export(playlists)
     }
 
-    private fun export(file: File, playlists: List<Playlist>, getTracksStartingFrom: Int = 0) {
-        PrintWriter(FileWriter(file, true)).use { out ->
-            playlists.forEach { playlist ->
-                if (saveAs == SupportedExtensions.csv.name) out.println("Title;Artist;Album;isrc")
+    private fun export(playlists: List<Playlist>, givenFile: File? = null, getTracksStartingFrom: Int = 0) {
+        playlists.forEach { playlist ->
+            if (isSeparateFilesByPlaylist) {
+                saveWithName = playlist.title.removeWindowsInvalidCharacters()
+            }
+
+            val file = givenFile ?: File("${exportFilePath}$saveWithName.$saveAs").apply { if (!this.exists()) this.createNewFile() }
+
+            PrintWriter(FileWriter(file, true)).use { out ->
+                if (saveAs == SupportedExtensions.csv.name && file.name !in filesAlreadyWithHeader) {
+                    out.println("Title;Artist;Album;isrc").also { filesAlreadyWithHeader.add(file.name) }
+                }
 
                 out.println(getExportPlaylistMessage(playlist, getTracksStartingFrom))
 
-                var isThisScopeFinished = false
+                val tracksQuantity = playlist.tracks.size
 
-                playlist.tracks.drop(getTracksStartingFrom).forEachIndexed { index, track ->
-                    if (playlistTracksPerFile != null && index > playlistTracksPerFile!!) {
-                        if (isThisScopeFinished) return@forEachIndexed
+                val scopeLimit = if (playlistTracksPerFile != null) {
+                    val nextScopeInitial = getTracksStartingFrom + (playlistTracksPerFile!! + 1)
+                    if (nextScopeInitial < tracksQuantity) {
+                        nextScopeInitial
+                    } else {
+                        tracksQuantity
+                    }
+                } else {
+                    tracksQuantity
+                }
 
+                playlist.tracks.subList(getTracksStartingFrom, scopeLimit).forEachIndexed { index, track ->
+                    if (playlistTracksPerFile != null && index == playlistTracksPerFile!!) {
                         val nextFile = getNextFile(playlist)
-                        export(nextFile, listOf(playlist), getTracksStartingFrom.let { if (it == 0) it + 1 else it } + playlistTracksPerFile!!)
-
-                        isThisScopeFinished = true
+                        export(listOf(playlist), nextFile, getTracksStartingFrom + playlistTracksPerFile!!)
                     } else {
                         out.println(getExportTrackMessage(track))
                     }
                 }
 
-                if (saveAs == SupportedExtensions.txt.name) out.println()
+                if (!isSeparateFilesByPlaylist) out.println()
             }
         }
     }
@@ -62,15 +75,22 @@ object Exporter {
         }
     }
 
-    private fun eraseOldFiles() {
+    private fun eraseOldFiles(playlists: List<Playlist>) {
         File(exportFilePath).listFiles()
-            ?.filter { it.name.startsWith(saveWithName) }
-            ?.filter { it.extension == saveAs }
+            ?.filter { file ->
+                if (isSeparateFilesByPlaylist) {
+                    playlists.map { it.title.removeWindowsInvalidCharacters() }.any { playlistName -> file.name.startsWith(playlistName) }
+                } else {
+                    file.name.startsWith(saveWithName)
+                }
+                    &&
+                file.extension == saveAs
+            }
             ?.forEach { it.delete() }
     }
 
     private fun getNextFile(playlist: Playlist): File {
-        val filesNumberWhereThisPlaylistIs = playlistInFile[playlist] ?: emptyList()
+        val filesNumberWhereThisPlaylistIs = playlistInFile[playlist] ?: emptySet()
 
         var currentFileNumber = 2
         var file = File("${exportFilePath}$saveWithName$currentFileNumber.$saveAs")
@@ -80,7 +100,7 @@ object Exporter {
             file = File("${exportFilePath}$saveWithName$currentFileNumber.$saveAs")
         }
 
-        playlistInFile.getOrPut(playlist, { mutableListOf(currentFileNumber) }).apply { if (this.isEmpty()) this.add(currentFileNumber) }
+        playlistInFile.getOrPut(playlist, { mutableSetOf() }).add(currentFileNumber)
 
         if (!file.exists()) {
             file.createNewFile()
@@ -91,15 +111,15 @@ object Exporter {
 
     private fun getCurrentTracksCount(tracksStartingFrom: Int, tracksQuantity: Int): String {
         if (playlistTracksPerFile == null) {
-            return "${tracksStartingFrom.let { if (it == 0) 1 else it }} - $tracksQuantity"
+            return "${tracksStartingFrom + 1} - $tracksQuantity"
         }
 
-        val currentScope = ceil(tracksStartingFrom.let { if (it == 0) 1.0 else it }.toDouble() / playlistTracksPerFile!!.toDouble()).toInt()
+        val currentScope = ceil((tracksStartingFrom + 1).toDouble() / playlistTracksPerFile!!.toDouble()).toInt()
 
         return if (playlistTracksPerFile!! * currentScope < tracksQuantity) {
-            "${tracksStartingFrom.let { if (it == 0) 1 else it }} - ${playlistTracksPerFile!! * currentScope}"
+            "${tracksStartingFrom + 1} - ${playlistTracksPerFile!! * currentScope}"
         } else {
-            "${tracksStartingFrom.let { if (it == 0) 1 else it }} - $tracksQuantity"
+            "${tracksStartingFrom + 1} - $tracksQuantity"
         }
     }
 }

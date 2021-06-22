@@ -128,10 +128,11 @@ object App {
         frame.layout = null
         pane.layout = null
 
-        label.text = htmlCenter("Importação concluída. <br><br>" + getFilesPath())
+        label.text = htmlCenter("Importação concluída. <br><br>" + getFilesPath(), 700)
 
-        val filesQuantity = label.text.split(' ').filter { it == "<br>" }.size
-        val pathLength = label.text.split(' ').last { it.contains(saveWithName) }.length
+        val filesQuantity = label.text.windowed(4) { if (it == "<br>") 1 else 0 }.sum() - 2
+        val pathLength = File(exportFilePath).listFiles()?.filter { it.extension == saveAs }?.maxByOrNull { it.name.length }?.canonicalPath?.length
+            ?: 70
 
         frame.setSize((pathLength * 7.25).toInt(), 300 + (filesQuantity * if (filesQuantity <= 15) 3 else 11))
         frame.setLocationRelativeTo(null)
@@ -153,19 +154,56 @@ object App {
         app = frame
     }
 
+    fun createErrorMessage(message: String) {
+        if (label.text == htmlCenter("Importando...")) app.dispose()
+
+        val frame = JFrame("$appName-$version").also { it.setIconImage() }
+        val textPanel = JPanel()
+        val pane = frame.contentPane
+
+        frame.layout = null
+        pane.layout = null
+
+        frame.setSize((message.length * 7.25).toInt().let { if (it < 350) 350 else it }, 300)
+        frame.setLocationRelativeTo(null)
+
+        pane.add(textPanel)
+        label.text = htmlCenter(message, 400)
+        textPanel.add(label)
+
+        textPanel.setBounds(
+            0,
+            100,
+            -15 + frame.size.width,
+            300
+        )
+
+        frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+        frame.isVisible = true
+        frame.isAlwaysOnTop = true
+
+        app = frame
+    }
+
     fun updateMessage(message: String) {
         label.text = htmlCenter(message)
     }
 
-    private fun getFilesPath(): String? {
-        val files = File(exportFilePath).listFiles()?.filter { it.name.startsWith(saveWithName) && it.extension == saveAs }
-            ?.sortedBy { it.name.substring(saveWithName.length, it.name.lastIndexOf('.')).let { fileNumber -> if (fileNumber.isBlank()) "1" else fileNumber }.toInt() }
+    private fun getFilesPath(): String {
+        val files = File(exportFilePath).listFiles()?.filter {
+            if (isSeparateFilesByPlaylist) {
+                val createdPlaylists = Playlist.createdPlaylists.map { playlist -> playlist.title.removeWindowsInvalidCharacters() }
+                createdPlaylists.any { playlistTitle -> it.name.startsWith(playlistTitle) }
+            } else {
+                it.name.startsWith(saveWithName) && it.extension == saveAs
+            }
+        } ?: return "Não foi possível encontrar os arquivos gerados."
 
-        val filesPath = files?.map { "${it.canonicalPath} <br> " }
-        return filesPath?.reduce { acc, s -> "$acc $s" }
+        val filesPath = files.map { "${it.canonicalPath} <br> " }
+        return filesPath.reduce { acc, s -> "$acc$s" }.trim()
     }
 
-    private fun htmlCenter(message: String) = "<html><body><div width='200px' align='center'>$message</div></body></html>"
+    private fun htmlCenter(message: String, width: Int = 200) = "<html><body><div width='${width}px' align='center' >$message</div></body></html>"
 
     private fun JFrame.setIconImage() {
         try {

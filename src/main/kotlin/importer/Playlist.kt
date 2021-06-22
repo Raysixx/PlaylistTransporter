@@ -7,6 +7,10 @@ import org.json.JSONObject
 data class Playlist(val title: String, val id: Long) {
     val tracks = mutableListOf<Track>()
 
+    init {
+        createdPlaylists.add(this)
+    }
+
     companion object {
         private const val DATA = "data"
         private const val ARTIST = "artist"
@@ -16,6 +20,8 @@ data class Playlist(val title: String, val id: Long) {
         private const val TRACKLIST = "tracklist"
         private const val NEXT = "next"
         private const val IMPORTING_PLAYLIST = "Importando playlist"
+
+        val createdPlaylists = mutableSetOf<Playlist>()
 
         fun getPlaylistsFromJson(json: JSONObject): List<Playlist> {
             val jsonMap = json.toMap()
