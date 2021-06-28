@@ -41,7 +41,7 @@
                             <archive>
                                 <manifest>
                                     <mainClass>
-                                        importer.ScriptKt
+                                        client.ScriptKt
                                     </mainClass>
                                 </manifest>
                             </archive>

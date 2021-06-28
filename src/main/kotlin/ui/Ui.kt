@@ -1,5 +1,12 @@
-package importer
+package ui
 
+import client.exportFilePath
+import client.isSeparateFilesByPlaylist
+import client.saveAs
+import client.saveWithName
+import exporter.FileExporter.removeWindowsInvalidCharacters
+import model.Playlist
+import server.Server
 import java.awt.event.MouseEvent
 import java.awt.event.MouseListener
 import javax.swing.JButton
@@ -14,7 +21,7 @@ import java.awt.image.BufferedImage
 import java.lang.Exception
 import kotlin.system.exitProcess
 
-object App {
+object Ui {
     private const val appName = "DeezerPlaylistImporter"
     private const val version = "v1.1"
     private lateinit var app: JFrame
@@ -207,7 +214,7 @@ object App {
 
     private fun JFrame.setIconImage() {
         try {
-            val imageFile = this@App.javaClass.classLoader.getResource("importDeezer.png")
+            val imageFile = this@Ui.javaClass.classLoader.getResource("importDeezer.png")
             val image: BufferedImage = ImageIO.read(imageFile)
             this.iconImage = image
         } catch (e: Exception) {}

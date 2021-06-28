@@ -1,4 +1,4 @@
-package importer
+package server
 
 import com.sun.net.httpserver.HttpServer
 import java.lang.Exception
@@ -32,7 +32,7 @@ object Server {
         }
 
         val server = HttpServer.create(InetSocketAddress(domain, port.toInt()), 0)
-        server.createContext(contextAction, MyHttpHandler)
+        server.createContext(contextAction, HttpHandler)
 
         currentServer = server
         currentServer.start()

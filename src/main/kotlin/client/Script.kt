@@ -1,17 +1,10 @@
-package importer
+package client
 
-import com.github.kevinsawicki.http.HttpRequest
-import org.json.JSONObject
-import java.awt.Desktop
+import deezer.DeezerImportScript
+import exporter.FileExporter
+import exporter.FileExporter.removeWindowsInvalidCharacters
+import ui.Ui
 import java.io.File
-import java.net.URI
-
-@Volatile
-private var currentToken: String? = null
-
-private const val appId = 487462
-private const val secretKey = "6194eef1df27977560fe0b2ddc8e8b5b"
-private const val redirect_uri = "http://localhost:5000"
 
 var saveWithName: String = "Playlists"
 var saveAs: String = "txt"
@@ -20,50 +13,14 @@ var isSeparateFilesByPlaylist = false
 var playlistTracksPerFile: Int? = null
 val playlistToImport = mutableListOf<String>()
 
-@Suppress("EnumEntryName")
-enum class SupportedExtensions {
-    txt,
-    csv
-}
-
-@Suppress("ControlFlowWithEmptyBody", "ComplexRedundantLet")
 fun main(args: Array<String>) {
     try {
         treatArgs(args)
 
-        Server.create(redirect_uri)
-        Desktop.getDesktop().browse(URI(deezerAuthenticationURL()))
-        App.createLoginMessage()
-
-        while (currentToken == null) {
-        }
-
-        val playlists = (HttpRequest.get(deezerUserPlaylistsURL()).body() as String)
-            .let { JSONObject(it) }
-            .let { Playlist.getPlaylistsFromJson(it) }
-
-        if (playlists.isEmpty()) {
-            throw Exception("Nenhuma playlist encontrada.")
-        } else {
-            Exporter.exportPlaylistsToFile(playlists)
-            App.createDoneMessage()
-        }
+        DeezerImportScript.runImport()
     } catch (exception: Exception) {
-        throw exception.also { App.createErrorMessage(it.message!!) }
+        throw exception.also { Ui.createErrorMessage(it.message!!) }
     }
-}
-
-fun fillToken(token: String) {
-    currentToken = token
-}
-
-fun deezerAuthenticationURL() = "https://connect.deezer.com/oauth/auth.php?app_id=${appId}&redirect_uri=${redirect_uri}&perms=basic_access,email"
-fun deezerGetTempTokenURL(code: String) = "https://connect.deezer.com/oauth/access_token.php?app_id=${appId}&secret=${secretKey}&code=$code"
-fun deezerUserPlaylistsURL() = "https://api.deezer.com/user/me/playlists&access_token=$currentToken"
-fun urlPlusToken(url: String) = "${url}&access_token=$currentToken"
-
-fun String.removeWindowsInvalidCharacters(): String {
-    return this.replace("[\\\\/:*?\"<>|]".toRegex(), "")
 }
 
 private fun treatArgs(args: Array<String>) {
@@ -101,7 +58,7 @@ private fun treatArgs(args: Array<String>) {
 }
 
 private fun checkSupportedExtension(extension: String) {
-    val supportedExtensions = SupportedExtensions.values().map { it.name }
+    val supportedExtensions = FileExporter.SupportedExtensions.values().map { it.name }
     if (extension !in supportedExtensions) {
         throw Exception("Extensão '$extension' não suportada.")
     }

@@ -1,11 +1,24 @@
-package importer
+package exporter
 
+import client.exportFilePath
+import client.isSeparateFilesByPlaylist
+import client.playlistTracksPerFile
+import client.saveAs
+import client.saveWithName
+import model.Playlist
+import model.Track
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
 import kotlin.math.ceil
 
-object Exporter {
+@Suppress("EnumEntryName")
+object FileExporter {
+    enum class SupportedExtensions {
+        txt,
+        csv
+    }
+
     private val playlistInFile = mutableMapOf<Playlist, MutableSet<Int>>()
     private val filesAlreadyWithHeader = mutableSetOf<String>()
 
@@ -21,7 +34,7 @@ object Exporter {
                 saveWithName = playlist.title.removeWindowsInvalidCharacters()
             }
 
-            val file = givenFile ?: File("${exportFilePath}$saveWithName.$saveAs").apply { if (!this.exists()) this.createNewFile() }
+            val file = givenFile ?: File("$exportFilePath$saveWithName.$saveAs").apply { if (!this.exists()) this.createNewFile() }
 
             PrintWriter(FileWriter(file, true)).use { out ->
                 if (saveAs == SupportedExtensions.csv.name && file.name !in filesAlreadyWithHeader) {
@@ -93,11 +106,11 @@ object Exporter {
         val filesNumberWhereThisPlaylistIs = playlistInFile[playlist] ?: emptySet()
 
         var currentFileNumber = 2
-        var file = File("${exportFilePath}$saveWithName$currentFileNumber.$saveAs")
+        var file = File("$exportFilePath$saveWithName$currentFileNumber.$saveAs")
 
         while (file.exists() && currentFileNumber in filesNumberWhereThisPlaylistIs) {
             currentFileNumber++
-            file = File("${exportFilePath}$saveWithName$currentFileNumber.$saveAs")
+            file = File("$exportFilePath$saveWithName$currentFileNumber.$saveAs")
         }
 
         playlistInFile.getOrPut(playlist, { mutableSetOf() }).add(currentFileNumber)
@@ -121,5 +134,9 @@ object Exporter {
         } else {
             "${tracksStartingFrom + 1} - $tracksQuantity"
         }
+    }
+
+    fun String.removeWindowsInvalidCharacters(): String {
+        return this.replace("[\\\\/:*?\"<>|]".toRegex(), "")
     }
 }
