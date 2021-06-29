@@ -21,18 +21,26 @@ import java.awt.image.BufferedImage
 import java.lang.Exception
 import kotlin.system.exitProcess
 
-object Ui {
-    private const val appName = "DeezerPlaylistImporter"
-    private const val version = "v1.1"
-    private lateinit var app: JFrame
+object UI {
+    private const val screenTitle = "PlaylistTransporter"
+    private const val version = "v2.0"
+    private var isAlreadyStarted: Boolean = false
 
+    private lateinit var screen: JFrame
+    private lateinit var currentOperation: String
     private val label = JLabel()
 
-    fun createLoginMessage() {
-        val loginMessage = "Logue para importar as playlists."
+    fun createLoginScreen() {
+        if (!isAlreadyStarted) {
+            isAlreadyStarted = true
+        } else {
+            screen.dispose()
+        }
+
+        val loginMessage = "Logue para $currentOperation as playlists."
         val closeMessage = "Essa mensagem se fechará automaticamente ao logar, ou você pode encerrar manualmente o app ao clicar em encerrar."
 
-        val frame = JFrame("$appName-$version").also { it.setIconImage() }
+        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
         val button = JButton("Encerrar")
         val panel = JPanel()
         val textPanel = JPanel()
@@ -89,15 +97,15 @@ object Ui {
         frame.isVisible = true
         frame.isAlwaysOnTop = true
 
-        app = frame
+        screen = frame
     }
 
-    fun createImportingMessage() {
-        app.dispose()
+    fun createImportingScreen() {
+        screen.dispose()
 
-        val importingMessage = "Importando..."
+        val importingMessage = "$currentOperation..."
 
-        val frame = JFrame("$appName-$version").also { it.setIconImage() }
+        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
         val textPanel = JPanel()
         val pane = frame.contentPane
 
@@ -113,7 +121,7 @@ object Ui {
 
         textPanel.setBounds(
             0,
-            100,
+            90,
             400,
             300
         )
@@ -122,13 +130,13 @@ object Ui {
         frame.isVisible = true
         frame.isAlwaysOnTop = true
 
-        app = frame
+        screen = frame
     }
 
-    fun createDoneMessage() {
-        app.dispose()
+    fun createDoneExportToFileScreen() {
+        screen.dispose()
 
-        val frame = JFrame("$appName-$version").also { it.setIconImage() }
+        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
         val textPanel = JPanel()
         val pane = frame.contentPane
 
@@ -158,13 +166,49 @@ object Ui {
         frame.isVisible = true
         frame.isAlwaysOnTop = true
 
-        app = frame
+        screen = frame
     }
 
-    fun createErrorMessage(message: String) {
-        if (label.text == htmlCenter("Importando...")) app.dispose()
+    fun createDoneExportPlaylistScreen(exportedPlaylists: List<Playlist>) {
+        screen.dispose()
 
-        val frame = JFrame("$appName-$version").also { it.setIconImage() }
+        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val textPanel = JPanel()
+        val pane = frame.contentPane
+
+        frame.layout = null
+        pane.layout = null
+
+        val playlistsMessage = exportedPlaylists.map { "${it.title} <br> " }.reduce { acc, s -> "$acc$s" }.trim()
+        label.text = htmlCenter("Exportação concluída <br>Playlists: <br><br>$playlistsMessage", 700)
+
+        val playlistsQuantity = exportedPlaylists.size
+        val pathLength = exportedPlaylists.maxByOrNull { it.title.length }?.title?.length.let { if (it == null || it < 50) 50 else it }
+
+        frame.setSize((pathLength * 7.25).toInt(), 300 + (playlistsQuantity * if (playlistsQuantity <= 15) 3 else 11))
+        frame.setLocationRelativeTo(null)
+
+        pane.add(textPanel)
+        textPanel.add(label)
+
+        textPanel.setBounds(
+            0,
+            (65 - (playlistsQuantity * 4)).let { if (it < 4) 4 else it },
+            -15 + frame.size.width,
+            100 + frame.size.height
+        )
+
+        frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+        frame.isVisible = true
+        frame.isAlwaysOnTop = true
+
+        screen = frame
+    }
+
+    fun createErrorScreen(message: String) {
+        if (label.text == htmlCenter("Importando...")) screen.dispose()
+
+        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
         val textPanel = JPanel()
         val pane = frame.contentPane
 
@@ -189,11 +233,44 @@ object Ui {
         frame.isVisible = true
         frame.isAlwaysOnTop = true
 
-        app = frame
+        screen = frame
     }
 
     fun updateMessage(message: String) {
         label.text = htmlCenter(message)
+    }
+
+    fun updateOperation(message: String) {
+        currentOperation = message
+    }
+
+    /**
+     * Adds dynamic dots on the end of the message to represent search
+     */
+    fun addSearching() {
+        val currentText = label.text
+
+        val messageLastIndex = currentText.indexOf("</div>")
+        val messageFirstIndex = currentText.indexOf("align='center'") + 16
+
+        val currentMessage = currentText.substring(messageFirstIndex, messageLastIndex)
+        val isToReset = run {
+            val hasOneDot = currentText[messageLastIndex - 3] == '.'
+            val hasSecondDot = currentText[messageLastIndex - 2] == '.'
+            val hasThirdDot = currentText[messageLastIndex - 1] == '.'
+
+            hasOneDot && hasSecondDot && hasThirdDot
+        }
+
+        if (isToReset) {
+            updateMessage(currentMessage.substring(0, currentMessage.length - 3))
+        } else {
+            updateMessage("$currentMessage.")
+        }
+    }
+
+    fun close() {
+        screen.dispose()
     }
 
     private fun getFilesPath(): String {
@@ -214,7 +291,7 @@ object Ui {
 
     private fun JFrame.setIconImage() {
         try {
-            val imageFile = this@Ui.javaClass.classLoader.getResource("importDeezer.png")
+            val imageFile = this@UI.javaClass.classLoader.getResource("playlistTransporterLogo.png")
             val image: BufferedImage = ImageIO.read(imageFile)
             this.iconImage = image
         } catch (e: Exception) {}

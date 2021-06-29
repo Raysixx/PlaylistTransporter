@@ -2,10 +2,17 @@ package app
 
 import model.Utils
 
-open class App(app: AppInterface): Utils(), AppInterface {
+@Suppress("ControlFlowWithEmptyBody")
+abstract class App: Utils(), AppInterface {
     @Volatile protected var currentToken: String? = null
 
-    override val appId: String = app.appId
-    override val secretKey: String = app.secretKey
-    override val redirectUri: String = app.redirectUri
+    override var operation: AppInterface.Operation? = null
+
+    override fun generateToken() {
+        while (currentToken == null) {}
+    }
+
+    override fun fillToken(token: String) {
+        currentToken = token
+    }
 }

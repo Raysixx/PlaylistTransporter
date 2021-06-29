@@ -1,13 +1,15 @@
 package server
 
+import app.App
 import com.sun.net.httpserver.HttpServer
 import java.lang.Exception
 import java.net.InetSocketAddress
 
 object Server {
+    lateinit var currentApp: App
     private lateinit var currentServer: HttpServer
 
-    fun create(uri: String) {
+    fun create(uri: String, app: App) {
         if (!uri.contains("http://")) {
             throw Exception("redirect_uri must contain 'http://'.")
         }
@@ -36,6 +38,8 @@ object Server {
 
         currentServer = server
         currentServer.start()
+
+        currentApp = app
     }
 
     fun shutDown() {

@@ -56,7 +56,7 @@ object FileExporter {
                     tracksQuantity
                 }
 
-                playlist.tracks.subList(getTracksStartingFrom, scopeLimit).forEachIndexed { index, track ->
+                playlist.tracks.toList().subList(getTracksStartingFrom, scopeLimit).forEachIndexed { index, track ->
                     if (playlistTracksPerFile != null && index == playlistTracksPerFile!!) {
                         val nextFile = getNextFile(playlist)
                         export(listOf(playlist), nextFile, getTracksStartingFrom + playlistTracksPerFile!!)
@@ -82,8 +82,8 @@ object FileExporter {
 
     private fun getExportTrackMessage(track: Track): String {
         return when (saveAs) {
-            SupportedExtensions.txt.name -> "    ${track.artist} - ${track.name}"
-            SupportedExtensions.csv.name -> "${track.name};${track.artist};;;"
+            SupportedExtensions.txt.name -> "    ${track.artist.name} - ${track.name}"
+            SupportedExtensions.csv.name -> "${track.name};${track.artist.name};;;"
             else -> ""
         }
     }

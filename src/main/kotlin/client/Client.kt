@@ -1,9 +1,13 @@
 package client
 
-import deezer.DeezerImportScript
+import app.apps.deezer.DeezerApp
+import app.apps.deezer.DeezerImportScript
 import exporter.FileExporter
 import exporter.FileExporter.removeWindowsInvalidCharacters
-import ui.Ui
+import model.Playlist
+import app.apps.spotify.SpotifyExportScript
+import server.Server
+import ui.UI
 import java.io.File
 
 var saveWithName: String = "Playlists"
@@ -13,13 +17,27 @@ var isSeparateFilesByPlaylist = false
 var playlistTracksPerFile: Int? = null
 val playlistToImport = mutableListOf<String>()
 
+enum class Apps {
+    DEEZER,
+    SPOTIFY
+}
+
+@Suppress("ControlFlowWithEmptyBody")
 fun main(args: Array<String>) {
     try {
         treatArgs(args)
 
         DeezerImportScript.runImport()
+
+        while (DeezerApp().isRunning) {}
+
+        val importedPlaylists = Playlist.getPlaylistsFromSpecificApp(Apps.DEEZER)
+
+        SpotifyExportScript.runExport(importedPlaylists)
     } catch (exception: Exception) {
-        throw exception.also { Ui.createErrorMessage(it.message!!) }
+        throw exception.also { UI.createErrorScreen(it.message!!) }
+    } finally {
+        Server.shutDown()
     }
 }
 

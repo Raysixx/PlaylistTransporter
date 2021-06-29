@@ -1,9 +1,10 @@
 package server
 
+import app.AppInterface
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
-import deezer.DeezerImportScript
-import ui.Ui
+import model.Utils
+import ui.UI
 
 object HttpHandler : HttpHandler {
     override fun handle(exchange: HttpExchange?) {
@@ -11,11 +12,14 @@ object HttpHandler : HttpHandler {
             return
         }
 
-        Ui.createImportingMessage()
+        val currentApp = Server.currentApp
+
+        UI.updateOperation(if (currentApp.operation == AppInterface.Operation.IMPORT) Utils.IMPORTING else Utils.EXPORTING)
+        UI.createImportingScreen()
 
         val urlRedirected = exchange.requestURI.toString()
 
-        val token = DeezerImportScript.getToken(urlRedirected)
-        DeezerImportScript.fillToken(token)
+        currentApp.getToken(urlRedirected)
+            .let { currentApp.fillToken(it) }
     }
 }
