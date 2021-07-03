@@ -1,5 +1,7 @@
 package ui
 
+import client.Action
+import client.currentAction
 import client.exportFilePath
 import client.isSeparateFilesByPlaylist
 import client.saveAs
@@ -21,21 +23,93 @@ import java.awt.image.BufferedImage
 import java.lang.Exception
 import kotlin.system.exitProcess
 
+
 object UI {
     private const val screenTitle = "PlaylistTransporter"
     private const val version = "v2.0"
-    private var isAlreadyStarted: Boolean = false
 
     private lateinit var screen: JFrame
     private lateinit var currentOperation: String
     private val label = JLabel()
 
+    fun createActionScreen() {
+        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val deezerToSpotifybutton = JButton("Deezer  >>  Spotify")
+        val deezerToFilebutton = JButton("Deezer  >>  Arquivo")
+        val panel = JPanel()
+        val pane = frame.contentPane
+
+        frame.layout = null
+        pane.layout = null
+        panel.layout = null
+
+        frame.setSize(400, 300)
+        frame.setLocationRelativeTo(null)
+
+        deezerToSpotifybutton.addMouseListener(object : MouseListener {
+            override fun mousePressed(e: MouseEvent?) {
+                currentAction = Action.DEEZER_TO_SPOTIFY
+            }
+
+            override fun mouseClicked(e: MouseEvent?) {}
+            override fun mouseReleased(e: MouseEvent?) {}
+            override fun mouseEntered(e: MouseEvent?) {}
+            override fun mouseExited(e: MouseEvent?) {}
+        })
+        deezerToSpotifybutton.setBounds(
+            120,
+            65,
+            150,
+            40
+        )
+
+        deezerToFilebutton.addMouseListener(object : MouseListener {
+            override fun mousePressed(e: MouseEvent?) {
+                currentAction = Action.DEEZER_TO_FILE
+            }
+
+            override fun mouseClicked(e: MouseEvent?) {}
+            override fun mouseReleased(e: MouseEvent?) {}
+            override fun mouseEntered(e: MouseEvent?) {}
+            override fun mouseExited(e: MouseEvent?) {}
+        })
+        deezerToFilebutton.setBounds(
+            120,
+            155,
+            150,
+            40
+        )
+
+        pane.add(panel)
+
+        updateMessage("Selecione a ação:")
+        label.setBounds(
+            60,
+            -75,
+            300,
+            200
+        )
+
+        panel.add(deezerToSpotifybutton)
+        panel.add(deezerToFilebutton)
+        panel.add(label)
+
+        panel.setBounds(
+            0,
+            0,
+            frame.width,
+            frame.height
+        )
+
+        frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+        frame.isVisible = true
+        frame.isAlwaysOnTop = true
+
+        screen = frame
+    }
+
     fun createLoginScreen() {
-        if (!isAlreadyStarted) {
-            isAlreadyStarted = true
-        } else {
-            screen.dispose()
-        }
+        try { closeCurrentScreen() } catch (e: Exception) {}
 
         val loginMessage = "Logue para $currentOperation as playlists."
         val closeMessage = "Essa mensagem se fechará automaticamente ao logar, ou você pode encerrar manualmente o app ao clicar em encerrar."
@@ -73,7 +147,7 @@ object UI {
         pane.add(textPanel)
 
         panel.add(button)
-        label.text = htmlCenter("$loginMessage <br><br> $closeMessage")
+        updateMessage("$loginMessage <br><br> $closeMessage")
         textPanel.add(label)
 
         val insets = pane.insets
@@ -101,7 +175,7 @@ object UI {
     }
 
     fun createImportingScreen() {
-        screen.dispose()
+        closeCurrentScreen()
 
         val importingMessage = "$currentOperation..."
 
@@ -116,7 +190,7 @@ object UI {
         frame.setLocationRelativeTo(null)
 
         pane.add(textPanel)
-        label.text = htmlCenter(importingMessage)
+        updateMessage(importingMessage)
         textPanel.add(label)
 
         textPanel.setBounds(
@@ -134,7 +208,7 @@ object UI {
     }
 
     fun createDoneExportToFileScreen() {
-        screen.dispose()
+        closeCurrentScreen()
 
         val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
         val textPanel = JPanel()
@@ -143,7 +217,7 @@ object UI {
         frame.layout = null
         pane.layout = null
 
-        label.text = htmlCenter("Importação concluída. <br><br>" + getFilesPath(), 700)
+        updateMessage("Importação concluída. <br><br>" + getFilesPath(), 700)
 
         val filesQuantity = label.text.windowed(4) { if (it == "<br>") 1 else 0 }.sum() - 2
         val pathLength = File(exportFilePath).listFiles()?.filter { it.extension == saveAs }?.maxByOrNull { it.name.length }?.canonicalPath?.length
@@ -170,7 +244,7 @@ object UI {
     }
 
     fun createDoneExportPlaylistScreen(exportedPlaylists: List<Playlist>) {
-        screen.dispose()
+        closeCurrentScreen()
 
         val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
         val textPanel = JPanel()
@@ -180,7 +254,7 @@ object UI {
         pane.layout = null
 
         val playlistsMessage = exportedPlaylists.map { "${it.title} <br> " }.reduce { acc, s -> "$acc$s" }.trim()
-        label.text = htmlCenter("Exportação concluída <br>Playlists: <br><br>$playlistsMessage", 700)
+        updateMessage("Exportação concluída <br>Playlists: <br><br>$playlistsMessage", 700)
 
         val playlistsQuantity = exportedPlaylists.size
         val pathLength = exportedPlaylists.maxByOrNull { it.title.length }?.title?.length.let { if (it == null || it < 50) 50 else it }
@@ -206,7 +280,7 @@ object UI {
     }
 
     fun createErrorScreen(message: String) {
-        if (label.text == htmlCenter("Importando...")) screen.dispose()
+        try { closeCurrentScreen() } catch (e: Exception) {}
 
         val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
         val textPanel = JPanel()
@@ -236,8 +310,8 @@ object UI {
         screen = frame
     }
 
-    fun updateMessage(message: String) {
-        label.text = htmlCenter(message)
+    fun updateMessage(message: String, setWidthTo: Int = 200) {
+        label.text = htmlCenter(message, setWidthTo)
     }
 
     fun updateOperation(message: String) {
@@ -269,7 +343,7 @@ object UI {
         }
     }
 
-    fun close() {
+    fun closeCurrentScreen() {
         screen.dispose()
     }
 
@@ -297,3 +371,4 @@ object UI {
         } catch (e: Exception) {}
     }
 }
+

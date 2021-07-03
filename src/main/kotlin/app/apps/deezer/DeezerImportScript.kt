@@ -1,9 +1,12 @@
 package app.apps.deezer
 
 import app.AppInterface
+import client.Action
 import client.Apps
+import client.currentAction
 import client.playlistToImport
 import com.github.kevinsawicki.http.HttpRequest
+import exporter.FileExporter
 import ui.UI
 import importer.Importer
 import model.Artist
@@ -27,10 +30,11 @@ object DeezerImportScript: DeezerApp(), Importer {
         if (playlists.isEmpty()) {
             throw Exception("Nenhuma playlist encontrada.")
         }
-//        else {
-//            FileExporter.exportPlaylistsToFile(playlists)
-//            Ui.createDoneExportToFileMessage()
-//        }
+
+        if (currentAction == Action.DEEZER_TO_FILE) {
+            FileExporter.exportPlaylistsToFile(playlists)
+            UI.createDoneExportToFileScreen()
+        }
 
         isRunning = false
     }
