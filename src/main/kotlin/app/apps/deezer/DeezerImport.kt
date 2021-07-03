@@ -12,33 +12,33 @@ import model.Track
 import org.json.JSONObject
 import java.net.URLEncoder
 
-@Suppress("UNCHECKED_CAST", "ControlFlowWithEmptyBody", "ComplexRedundantLet")
-object DeezerImportScript: DeezerApp(), Importer {
+@Suppress("UNCHECKED_CAST", "ControlFlowWithEmptyBody", "ComplexRedundantLet", "SimplifiableCallChain")
+object DeezerImport: DeezerApp(), Importer {
     override fun runImport() {
         isRunning = true
         operation = AppInterface.Operation.IMPORT
 
-        generateToken()
-        fillCurrentCountry(currentToken!!)
+        try {
+            generateToken()
+            fillCurrentCountry(currentToken!!)
 
-        val playlists = deezerGetUserPlaylistsURL(currentToken).getURLResponse()
-            .let { getPlaylists(it) }
+            deezerGetUserPlaylistsURL(currentToken).getURLResponse()
+                .let { fillPlaylists(it) }
 
-        if (playlists.isEmpty()) {
-            throw Exception("Nenhuma playlist encontrada.")
+            val createdPlaylists = Playlist.createdPlaylists.filter { it.app.name == Apps.DEEZER.name }
+            if (createdPlaylists.isEmpty()) {
+                throw Exception("Nenhuma playlist encontrada.")
+            }
+        } finally {
+            isRunning = false
+            operation = null
         }
-//        else {
-//            FileExporter.exportPlaylistsToFile(playlists)
-//            Ui.createDoneExportToFileMessage()
-//        }
-
-        isRunning = false
     }
 
-    override fun getPlaylists(rawPlaylistsMap: HashMap<String, *>): List<Playlist> {
+    override fun fillPlaylists(rawPlaylistsMap: HashMap<String, *>) {
         val rawPlaylists = rawPlaylistsMap[DATA] as List<HashMap<String, *>>
 
-        return rawPlaylists.mapNotNull { rawPlaylist ->
+        rawPlaylists.forEach { rawPlaylist ->
             val playlistTitleAndId = rawPlaylist.filter { (metaDataName, _) ->
                 metaDataName in listOf(TITLE, ID)
             }.values
@@ -47,7 +47,7 @@ object DeezerImportScript: DeezerApp(), Importer {
             val id = playlistTitleAndId.last().toString()
 
             if (playlistToImport.isNotEmpty() && title.uppercase() !in playlistToImport) {
-                return@mapNotNull null
+                return@forEach
             }
 
             UI.updateMessage("$IMPORTING_PLAYLIST $title")
@@ -113,7 +113,7 @@ object DeezerImportScript: DeezerApp(), Importer {
 
             Track.createdTracks.filter { it.app.name == Apps.DEEZER.name }.firstOrNull { it.id == trackId }
                 ?: Track(artist, trackName, trackId, isAvailable, Apps.DEEZER)
-                    .also { if (!isAvailable) Track.tracksNotAvailable.getOrPut(Apps.DEEZER, { mutableListOf(it) }).add(it) }
+                    .also { if (!isAvailable) Track.tracksNotAvailable.getOrPut(Apps.DEEZER) { mutableListOf(it) }.add(it) }
         }
     }
 

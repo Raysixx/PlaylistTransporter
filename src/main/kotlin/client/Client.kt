@@ -1,21 +1,30 @@
 package client
 
 import app.apps.deezer.DeezerApp
-import app.apps.deezer.DeezerImportScript
+import app.apps.deezer.DeezerImport
 import exporter.FileExporter
 import exporter.FileExporter.removeWindowsInvalidCharacters
 import model.Playlist
-import app.apps.spotify.SpotifyExportScript
+import app.apps.spotify.SpotifyExport
+import model.Utils.Companion.waitForAppFinish
+import model.Utils.Companion.waitForCurrentActionDefinition
 import server.Server
 import ui.UI
 import java.io.File
+
+val playlistToImport = mutableListOf<String>()
 
 var saveWithName: String = "Playlists"
 var saveAs: String = "txt"
 var exportFilePath: String = "./"
 var isSeparateFilesByPlaylist = false
 var playlistTracksPerFile: Int? = null
-val playlistToImport = mutableListOf<String>()
+
+@Volatile var currentAction: Action? = null
+enum class Action {
+    DEEZER_TO_SPOTIFY,
+    DEEZER_TO_FILE
+}
 
 enum class Apps {
     DEEZER,
@@ -27,13 +36,25 @@ fun main(args: Array<String>) {
     try {
         treatArgs(args)
 
-        DeezerImportScript.runImport()
+        if (currentAction == null) {
+            UI.createActionScreen()
+        }
+        waitForCurrentActionDefinition()
 
-        while (DeezerApp().isRunning) {}
+        DeezerImport.runImport()
+        waitForAppFinish(DeezerApp())
 
         val importedPlaylists = Playlist.getPlaylistsFromSpecificApp(Apps.DEEZER)
 
-        SpotifyExportScript.runExport(importedPlaylists)
+        when (currentAction) {
+            Action.DEEZER_TO_SPOTIFY -> {
+                SpotifyExport.runExport(importedPlaylists)
+            }
+            Action.DEEZER_TO_FILE -> {
+                FileExporter.exportPlaylistsToFile(importedPlaylists)
+            }
+            else -> TODO()
+        }
     } catch (exception: Exception) {
         throw exception.also { UI.createErrorScreen(it.message!!) }
     } finally {
@@ -46,6 +67,15 @@ private fun treatArgs(args: Array<String>) {
         when {
             it.startsWith("saveWithName", true) -> saveWithName = it.getArgValueOnly().ifBlank { saveWithName }.removeWindowsInvalidCharacters()
             it.startsWith("saveAs", true) -> saveAs = it.getArgValueOnly().lowercase().ifBlank { saveAs }.also { extension -> checkSupportedExtension(extension) }
+
+            it.startsWith("currentAction") -> currentAction = it.getArgValueOnly().let { action ->
+                when {
+                    action.equals("deezerToSpotify", true) -> Action.DEEZER_TO_SPOTIFY
+                    action.equals("deezerToFile", true) -> Action.DEEZER_TO_FILE
+                    action.isBlank() -> null
+                    else -> throw Exception("Valor inválido para 'currentAction': $action")
+                }
+            }
 
             it.startsWith("exportFilePath", true) -> exportFilePath = it.getArgValueOnly().let { targetFilePath ->
                 if (targetFilePath.isNotBlank() && targetFilePath.last() != '/') "$targetFilePath/" else targetFilePath

@@ -7,6 +7,7 @@ import client.saveAs
 import client.saveWithName
 import model.Playlist
 import model.Track
+import ui.UI
 import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
@@ -26,6 +27,8 @@ object FileExporter {
         eraseOldFiles(playlists)
 
         export(playlists)
+
+        UI.createDoneExportToFileScreen()
     }
 
     private fun export(playlists: List<Playlist>, givenFile: File? = null, getTracksStartingFrom: Int = 0) {
@@ -113,7 +116,7 @@ object FileExporter {
             file = File("$exportFilePath$saveWithName$currentFileNumber.$saveAs")
         }
 
-        playlistInFile.getOrPut(playlist, { mutableSetOf() }).add(currentFileNumber)
+        playlistInFile.getOrPut(playlist) { mutableSetOf() }.add(currentFileNumber)
 
         if (!file.exists()) {
             file.createNewFile()

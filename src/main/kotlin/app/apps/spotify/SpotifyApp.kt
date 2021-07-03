@@ -34,7 +34,7 @@ open class SpotifyApp: App() {
     }
 
     override fun generateToken() {
-        Server.create(SpotifyExportScript.redirectUri, this)
+        Server.create(SpotifyExport.redirectUri, this)
         Desktop.getDesktop().browse(URI(spotifyAuthenticationURL()))
 
         UI.updateOperation(EXPORT)

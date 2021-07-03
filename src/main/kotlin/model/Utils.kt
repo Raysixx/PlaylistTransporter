@@ -1,11 +1,13 @@
 package model
 
+import app.App
 import client.Apps
+import client.currentAction
 import com.github.kevinsawicki.http.HttpRequest
 import org.json.JSONObject
 import java.net.URLEncoder
 
-@Suppress("PropertyName", "UNCHECKED_CAST")
+@Suppress("PropertyName", "UNCHECKED_CAST", "ControlFlowWithEmptyBody")
 open class Utils {
 
     enum class PossiblyProblematicWordsToBeOnSearches(val word: Any) {
@@ -75,9 +77,8 @@ open class Utils {
             }
 
             return if (problematicWordsThatURLContains.isNotEmpty()) {
-                var targetUrl = url
-                problematicWordsThatURLContains.forEach {
-                    targetUrl = targetUrl.replace(it, "")
+                val targetUrl = problematicWordsThatURLContains.fold(url) { acc, problematicWord ->
+                    acc.replace(problematicWord, "")
                 }
 
                 val rawResponse = targetUrl.getURLResponse()
@@ -118,6 +119,14 @@ open class Utils {
             val responseJson = JSONObject(response)
 
             return responseJson.toMap() as HashMap<String, *>
+        }
+
+        fun waitForCurrentActionDefinition() {
+            while (currentAction == null) {}
+        }
+
+        fun waitForAppFinish(app: App) {
+            while (app.isRunning) {}
         }
 
         fun comparePlaylistsTracks(firstPlaylist: Playlist, secondPlaylist: Playlist): List<String> {

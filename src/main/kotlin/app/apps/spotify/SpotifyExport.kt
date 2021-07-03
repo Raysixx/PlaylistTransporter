@@ -12,18 +12,22 @@ import ui.UI
 import java.net.URLEncoder
 
 @Suppress("ControlFlowWithEmptyBody", "UNCHECKED_CAST", "ComplexRedundantLet")
-object SpotifyExportScript: SpotifyApp(), Exporter {
+object SpotifyExport: SpotifyApp(), Exporter {
     override fun runExport(externalPlaylists: List<Playlist>) {
         isRunning = true
         operation = AppInterface.Operation.EXPORT
 
-        generateToken()
-        fillCurrentCountry(currentToken!!)
+        try {
+            generateToken()
+            fillCurrentCountry(currentToken!!)
 
-        addPlaylists(externalPlaylists, getUserId())
+            addPlaylists(externalPlaylists, getUserId())
 
-        UI.createDoneExportPlaylistScreen(externalPlaylists)
-        isRunning = false
+            UI.createDoneExportPlaylistScreen(externalPlaylists)
+        } finally {
+            isRunning = false
+            operation = null
+        }
     }
 
     override fun addPlaylists(externalPlaylists: List<Playlist>, userId: String) {
@@ -67,7 +71,7 @@ object SpotifyExportScript: SpotifyApp(), Exporter {
                 ?: searchTrackByName(currentTrack)
                 ?: run {
                     playlist.tracksNotFound.add(currentTrack)
-                    Track.tracksNotFound.getOrPut(Apps.SPOTIFY, { mutableListOf(currentTrack) }).add(currentTrack)
+                    Track.tracksNotFound.getOrPut(Apps.SPOTIFY) { mutableListOf(currentTrack) }.add(currentTrack)
                     return@mapNotNull null
                 }
 
