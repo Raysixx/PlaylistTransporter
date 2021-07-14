@@ -1,11 +1,15 @@
 package ui
 
-import client.Action
+import app.apps.deezer.DeezerExport
+import app.apps.deezer.DeezerImport
+import app.apps.spotify.SpotifyExport
+import app.apps.spotify.SpotifyImport
 import client.currentAction
 import client.exportFilePath
 import client.isSeparateFilesByPlaylist
 import client.saveAs
 import client.saveWithName
+import exporter.FileExporter
 import exporter.FileExporter.removeWindowsInvalidCharacters
 import model.Playlist
 import server.Server
@@ -23,10 +27,9 @@ import java.awt.image.BufferedImage
 import java.lang.Exception
 import kotlin.system.exitProcess
 
-
 object UI {
     private const val screenTitle = "PlaylistTransporter"
-    private const val version = "v2.0"
+    private const val version = "v2.1"
 
     private lateinit var screen: JFrame
     private lateinit var currentOperation: String
@@ -34,9 +37,13 @@ object UI {
 
     fun createActionScreen() {
         val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val panel = JPanel()
+
         val deezerToSpotifybutton = JButton("Deezer  >>  Spotify")
         val deezerToFilebutton = JButton("Deezer  >>  Arquivo")
-        val panel = JPanel()
+        val spotifyToDeezerbutton = JButton("Spotify  >>  Deezer")
+        val spotifyToFilebutton = JButton("Spotify  >>  Arquivo")
+
         val pane = frame.contentPane
 
         frame.layout = null
@@ -48,7 +55,7 @@ object UI {
 
         deezerToSpotifybutton.addMouseListener(object : MouseListener {
             override fun mousePressed(e: MouseEvent?) {
-                currentAction = Action.DEEZER_TO_SPOTIFY
+                currentAction = DeezerImport to SpotifyExport
             }
 
             override fun mouseClicked(e: MouseEvent?) {}
@@ -57,7 +64,7 @@ object UI {
             override fun mouseExited(e: MouseEvent?) {}
         })
         deezerToSpotifybutton.setBounds(
-            120,
+            27,
             65,
             150,
             40
@@ -65,7 +72,7 @@ object UI {
 
         deezerToFilebutton.addMouseListener(object : MouseListener {
             override fun mousePressed(e: MouseEvent?) {
-                currentAction = Action.DEEZER_TO_FILE
+                currentAction = DeezerImport to FileExporter
             }
 
             override fun mouseClicked(e: MouseEvent?) {}
@@ -74,7 +81,41 @@ object UI {
             override fun mouseExited(e: MouseEvent?) {}
         })
         deezerToFilebutton.setBounds(
-            120,
+            27,
+            155,
+            150,
+            40
+        )
+
+        spotifyToDeezerbutton.addMouseListener(object : MouseListener {
+            override fun mousePressed(e: MouseEvent?) {
+                currentAction = SpotifyImport to DeezerExport
+            }
+
+            override fun mouseClicked(e: MouseEvent?) {}
+            override fun mouseReleased(e: MouseEvent?) {}
+            override fun mouseEntered(e: MouseEvent?) {}
+            override fun mouseExited(e: MouseEvent?) {}
+        })
+        spotifyToDeezerbutton.setBounds(
+            207,
+            65,
+            150,
+            40
+        )
+
+        spotifyToFilebutton.addMouseListener(object : MouseListener {
+            override fun mousePressed(e: MouseEvent?) {
+                currentAction = SpotifyImport to FileExporter
+            }
+
+            override fun mouseClicked(e: MouseEvent?) {}
+            override fun mouseReleased(e: MouseEvent?) {}
+            override fun mouseEntered(e: MouseEvent?) {}
+            override fun mouseExited(e: MouseEvent?) {}
+        })
+        spotifyToFilebutton.setBounds(
+            207,
             155,
             150,
             40
@@ -92,6 +133,8 @@ object UI {
 
         panel.add(deezerToSpotifybutton)
         panel.add(deezerToFilebutton)
+        panel.add(spotifyToDeezerbutton)
+        panel.add(spotifyToFilebutton)
         panel.add(label)
 
         panel.setBounds(

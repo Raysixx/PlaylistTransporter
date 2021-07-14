@@ -3,7 +3,6 @@ package app.apps.spotify
 import model.Utils
 import model.Utils.Companion.URLPlusToken
 
-
 enum class SpotifyScopes(val oficialName: String) {
     READ_PRIVATE_PLAYLISTS("playlist-read-private"),
     READ_COLLABORATIVE_PLAYLISTS("playlist-read-collaborative"),
@@ -13,6 +12,8 @@ enum class SpotifyScopes(val oficialName: String) {
 }
 
 fun spotifyAuthenticationURL() = "https://accounts.spotify.com/authorize?client_id=${SpotifyApp().appId}&response_type=code&redirect_uri=${SpotifyApp().redirectUri}&scope=${SpotifyApp().scopes}&show_dialog=true"
+
+fun spotifyGetUserPlaylistsURL(currentToken: String?) = "${URLPlusToken("${spotifyGetUserURL()}/playlists", currentToken)}&limit=50"
 
 fun spotifyGetTempTokenURL() = "https://accounts.spotify.com/api/token"
 fun spotifyGetTempTokenPostBodyTemplate(code: String) = "grant_type=authorization_code&code=${code}&redirect_uri=${SpotifyApp().redirectUri}&client_id=${SpotifyApp().appId}&client_secret=${SpotifyApp().secretKey}"

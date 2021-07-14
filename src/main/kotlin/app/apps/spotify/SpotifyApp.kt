@@ -37,7 +37,7 @@ open class SpotifyApp: App() {
         Server.create(SpotifyExport.redirectUri, this)
         Desktop.getDesktop().browse(URI(spotifyAuthenticationURL()))
 
-        UI.updateOperation(EXPORT)
+        UI.updateOperation(operation!!.message)
         UI.createLoginScreen()
         super.generateToken()
     }

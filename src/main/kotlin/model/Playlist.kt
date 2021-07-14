@@ -14,7 +14,7 @@ data class Playlist(val title: String, val id: String, val app: Apps) {
         val createdPlaylists = mutableListOf<Playlist>()
 
         fun getPlaylistsFromSpecificApp(app: Apps): List<Playlist> {
-            return createdPlaylists.filter { it.app == app }
+            return createdPlaylists.filter { it.app.name == app.name }
         }
     }
 }

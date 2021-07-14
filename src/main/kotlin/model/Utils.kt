@@ -27,6 +27,7 @@ open class Utils {
         const val ID = "id"
         const val TRACKLIST = "tracklist"
         const val TRACK = "track"
+        const val TRACKS = "tracks"
         const val NEXT = "next"
         const val ITEMS = "items"
         const val COUNTRY = "country"
@@ -34,6 +35,7 @@ open class Utils {
         const val CONTRIBUTORS = "contributors"
         const val POPULARITY = "popularity"
         const val HREF = "href"
+        const val AVAILABLE_MARKETS = "available_markets"
 
         const val SEARCHING_ON_SERVER = "Procurando no servidor"
 

@@ -35,7 +35,7 @@ open class DeezerApp: App() {
         Server.create(redirectUri, this)
         Desktop.getDesktop().browse(URI(deezerAuthenticationURL()))
 
-        UI.updateOperation(IMPORT)
+        UI.updateOperation(operation!!.message)
         UI.createLoginScreen()
         super.generateToken()
     }

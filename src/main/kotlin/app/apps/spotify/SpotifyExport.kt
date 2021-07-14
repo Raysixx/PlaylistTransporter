@@ -21,7 +21,7 @@ object SpotifyExport: SpotifyApp(), Exporter {
             generateToken()
             fillCurrentCountry(currentToken!!)
 
-            addPlaylists(externalPlaylists, getUserId())
+            addPlaylists(externalPlaylists.reversed(), getUserId())
 
             UI.createDoneExportPlaylistScreen(externalPlaylists)
         } finally {

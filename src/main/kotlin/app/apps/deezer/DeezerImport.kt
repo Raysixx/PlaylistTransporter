@@ -37,14 +37,9 @@ object DeezerImport: DeezerApp(), Importer {
 
     override fun fillPlaylists(rawPlaylistsMap: HashMap<String, *>) {
         val rawPlaylists = rawPlaylistsMap[DATA] as List<HashMap<String, *>>
-
         rawPlaylists.forEach { rawPlaylist ->
-            val playlistTitleAndId = rawPlaylist.filter { (metaDataName, _) ->
-                metaDataName in listOf(TITLE, ID)
-            }.values
-
-            val title = playlistTitleAndId.first().toString()
-            val id = playlistTitleAndId.last().toString()
+            val title = rawPlaylist[TITLE].toString()
+            val id = rawPlaylist[ID].toString()
 
             if (playlistToImport.isNotEmpty() && title.uppercase() !in playlistToImport) {
                 return@forEach
@@ -56,9 +51,9 @@ object DeezerImport: DeezerApp(), Importer {
             val playlistRawTracks = URLPlusToken(playlistRawTracksURL, currentToken).getURLResponse()
 
             Playlist(title, id, Apps.DEEZER)
-                .also { playlist ->
-                    getTracks(playlist.title, playlistRawTracks).let { trackList ->
-                        playlist.tracks.addAll(trackList)
+                .apply {
+                    getTracks(this.title, playlistRawTracks).let { trackList ->
+                        this.tracks.addAll(trackList)
                     }
                 }
         }
@@ -83,27 +78,22 @@ object DeezerImport: DeezerApp(), Importer {
 
     private fun getCurrentTracks(rawTracks: List<HashMap<String, *>>, playlistTitle: String): List<Track> {
         return rawTracks.map { rawTrack ->
-            val rawTrackWithSpecificMetadata = rawTrack.filter { (metadataName, _) ->
-                metadataName in listOf(ARTIST, TITLE, ID, READABLE)
-            }
-
-            val artist = (rawTrackWithSpecificMetadata[ARTIST] as HashMap<String, *>).let {
+            val artist = (rawTrack[ARTIST] as HashMap<String, *>).let {
                 val artistName = it[NAME].toString()
                 val artistId = it[ID].toString()
 
                 Artist(artistName, artistId, Apps.DEEZER)
             }
 
-            val trackName = rawTrackWithSpecificMetadata[TITLE].toString()
-            var isAvailable = rawTrackWithSpecificMetadata[READABLE] as Boolean
+            val trackName = rawTrack[TITLE].toString()
 
             UI.updateMessage("$IMPORTING_PLAYLIST $playlistTitle <br>" +
-                    "$SEARCHING_ON_SERVER $FROM_DEEZER: <br>" +"" +
+                    "$SEARCHING_ON_SERVER $FROM_DEEZER: <br>" +
                     "${artist.name} - $trackName")
 
+            var isAvailable = rawTrack[READABLE] as Boolean
             val currentTracksNotAvailableIds = (Track.tracksNotAvailable[Apps.DEEZER] ?: emptyList()).map { it.id }
-            val currentTrackId = rawTrackWithSpecificMetadata[ID].toString()
-
+            val currentTrackId = rawTrack[ID].toString()
             val trackId = if (isAvailable || currentTrackId in currentTracksNotAvailableIds) {
                 currentTrackId
             } else {

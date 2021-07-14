@@ -12,10 +12,12 @@ Processo oficial descrito em:
 ## Ações atualmente suportadas
 * deezerToSpotify - importa playlists do Deezer e cria as mesmas playlists no Spotify
 * deezerToFile - importa playlists do Deezer e exporta para arquivo
+* spotifyToFile - importa playlists do Spotify e exporta para arquivo
 
 ## Apps de streaming atualmente suportados
 * Deezer (import) - importa e traz playlists dos servidores do Deezer
-* Spotify (export) - exporta e cria playlists nos servidores do Spotify (é necessário setar como permitido o email da conta onde as playlists vão ser criadas para funcionar)
+* Spotify (import/export) - importa e traz playlists dos servidores do Spotify; exporta e cria playlists nos servidores do Spotify 
+   * É necessário setar como permitido o email da conta onde as playlists vão ser criadas para funcionar, entre em contato se precisar
 
 ## Extensões de arquivos de saída atualmente suportados:
 * txt
@@ -24,11 +26,11 @@ Processo oficial descrito em:
 ## Como usar:
 
 ### Para exportar do Deezer para o Spotify
-*É necessário que o email da conta onde as playlists vão ser criadas seja setado como permitido para funcionar, entre em contato se precisar.* Baixe o zip da última release desse projeto, extraia, rode o PlaylistTransporter.jar (ou o executeWithParameters.bat caso esteja setando algum parâmetro), escolha a ação 'Deezer >> Spotify' (ou sete currentAction="DeezerToSpotify" nos parâmetros), logue com sua conta do Deezer, espere importar as playlists, logue com sua conta do Spotify e espera terminar de exportar.
+*É necessário que o email da conta onde as playlists vão ser criadas seja setado como permitido para funcionar, entre em contato se precisar.* Baixe o zip da última release desse projeto, extraia, rode o PlaylistTransporter.jar (ou o executeWithParameters.bat caso esteja setando algum parâmetro), escolha a ação 'Deezer >> Spotify', logue com sua conta do Deezer, espere importar as playlists, logue com sua conta do Spotify e espera terminar de exportar.
 
 ### Para exportar para arquivo
 
-Baixe o zip da última release desse projeto, extraia, rode o PlaylistTransporter.jar (ou o executeWithParameters.bat caso esteja setando algum parâmetro), escolha a ação 'Deezer >> Arquivo' (ou sete currentAction="DeezerToFile" nos parâmetros), logue com sua conta do Deezer, espere importar e exportar as playlists para o arquivo.\
+Baixe o zip da última release desse projeto, extraia, rode o PlaylistTransporter.jar (ou o executeWithParameters.bat caso esteja setando algum parâmetro), escolha a ação 'Deezer >> Arquivo' ou 'Spotify >> Arquivo', logue com sua conta do Deezer/Spotify, espere importar e exportar as playlists para o arquivo.\
 Por padrão, o app exportará todas as playlists com todas as músicas em um único arquivo 'Playlists.txt' no mesmo diretório do jar.
 
 ## Parâmetros:
@@ -41,9 +43,6 @@ Obs: O executeWithParameters.bat precisa estar na mesma pasta do PlaylistTranspo
 * playlistToImport - Define uma playlist específica para ser importada através do Nome.
     * Exemplo - playlistToImport="Loved Tracks"
     * Padrão - todas (sem valor)
-* currentAction - Define a ação a ser feita
-    * Exemplo - currentAction="deezerToSpotify"
-    * Padrão - nulo (abre tela para o usuário escolher)
 
 ### Parâmetros opcionais de exportação para arquivo:
 * saveWithName - Define o nome do arquivo de saída com as playlists e músicas.

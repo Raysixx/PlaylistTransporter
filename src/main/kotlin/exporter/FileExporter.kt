@@ -14,7 +14,7 @@ import java.io.PrintWriter
 import kotlin.math.ceil
 
 @Suppress("EnumEntryName")
-object FileExporter {
+object FileExporter: Exporter {
     enum class SupportedExtensions {
         txt,
         csv
@@ -23,10 +23,10 @@ object FileExporter {
     private val playlistInFile = mutableMapOf<Playlist, MutableSet<Int>>()
     private val filesAlreadyWithHeader = mutableSetOf<String>()
 
-    fun exportPlaylistsToFile(playlists: List<Playlist>) {
-        eraseOldFiles(playlists)
+    override fun runExport(externalPlaylists: List<Playlist>) {
+        eraseOldFiles(externalPlaylists)
 
-        export(playlists)
+        export(externalPlaylists)
 
         UI.createDoneExportToFileScreen()
     }
@@ -142,4 +142,8 @@ object FileExporter {
     fun String.removeWindowsInvalidCharacters(): String {
         return this.replace("[\\\\/:*?\"<>|]".toRegex(), "")
     }
+
+    override fun addPlaylists(externalPlaylists: List<Playlist>, userId: String) {}
+    override fun addTracks(playlist: Playlist, externalTracks: List<Track>) {}
+    override fun getTracks(playlist: Playlist, externalTracks: List<Track>) = emptyList<Track>()
 }

@@ -1,10 +1,12 @@
 package app
 
+import model.Utils
+
 interface AppInterface {
 
-    enum class Operation {
-        IMPORT,
-        EXPORT
+    enum class Operation(val message: String) {
+        IMPORT(Utils.IMPORT),
+        EXPORT(Utils.EXPORT)
     }
 
     var isRunning: Boolean
