@@ -10,7 +10,6 @@ import model.Artist
 import model.Playlist
 import model.Track
 import org.json.JSONObject
-import java.net.URLEncoder
 
 @Suppress("UNCHECKED_CAST", "ControlFlowWithEmptyBody", "ComplexRedundantLet", "SimplifiableCallChain")
 object DeezerImport: DeezerApp(), Importer {
@@ -25,8 +24,7 @@ object DeezerImport: DeezerApp(), Importer {
             deezerGetUserPlaylistsURL(currentToken).getURLResponse()
                 .let { fillPlaylists(it) }
 
-            val createdPlaylists = Playlist.createdPlaylists.filter { it.app.name == Apps.DEEZER.name }
-            if (createdPlaylists.isEmpty()) {
+            Playlist.createdPlaylists.filter { it.app.name == Apps.DEEZER.name }.ifEmpty {
                 throw Exception("Nenhuma playlist encontrada.")
             }
         } finally {
@@ -37,14 +35,9 @@ object DeezerImport: DeezerApp(), Importer {
 
     override fun fillPlaylists(rawPlaylistsMap: HashMap<String, *>) {
         val rawPlaylists = rawPlaylistsMap[DATA] as List<HashMap<String, *>>
-
         rawPlaylists.forEach { rawPlaylist ->
-            val playlistTitleAndId = rawPlaylist.filter { (metaDataName, _) ->
-                metaDataName in listOf(TITLE, ID)
-            }.values
-
-            val title = playlistTitleAndId.first().toString()
-            val id = playlistTitleAndId.last().toString()
+            val title = rawPlaylist[TITLE].toString()
+            val id = rawPlaylist[ID].toString()
 
             if (playlistToImport.isNotEmpty() && title.uppercase() !in playlistToImport) {
                 return@forEach
@@ -56,9 +49,9 @@ object DeezerImport: DeezerApp(), Importer {
             val playlistRawTracks = URLPlusToken(playlistRawTracksURL, currentToken).getURLResponse()
 
             Playlist(title, id, Apps.DEEZER)
-                .also { playlist ->
-                    getTracks(playlist.title, playlistRawTracks).let { trackList ->
-                        playlist.tracks.addAll(trackList)
+                .apply {
+                    getTracks(this.title, playlistRawTracks).let { trackList ->
+                        this.tracks.addAll(trackList)
                     }
                 }
         }
@@ -83,27 +76,23 @@ object DeezerImport: DeezerApp(), Importer {
 
     private fun getCurrentTracks(rawTracks: List<HashMap<String, *>>, playlistTitle: String): List<Track> {
         return rawTracks.map { rawTrack ->
-            val rawTrackWithSpecificMetadata = rawTrack.filter { (metadataName, _) ->
-                metadataName in listOf(ARTIST, TITLE, ID, READABLE)
-            }
-
-            val artist = (rawTrackWithSpecificMetadata[ARTIST] as HashMap<String, *>).let {
+            val artist = (rawTrack[ARTIST] as HashMap<String, *>).let {
                 val artistName = it[NAME].toString()
                 val artistId = it[ID].toString()
 
                 Artist(artistName, artistId, Apps.DEEZER)
             }
 
-            val trackName = rawTrackWithSpecificMetadata[TITLE].toString()
-            var isAvailable = rawTrackWithSpecificMetadata[READABLE] as Boolean
+            val trackName = rawTrack[TITLE].toString()
+            val albumName = (rawTrack[ALBUM] as HashMap<String, *>).let { it[TITLE].toString() }
 
             UI.updateMessage("$IMPORTING_PLAYLIST $playlistTitle <br>" +
-                    "$SEARCHING_ON_SERVER $FROM_DEEZER: <br>" +"" +
-                    "${artist.name} - $trackName")
+                    "$SEARCHING_ON_SERVER $FROM_DEEZER: <br>" +
+                    "${artist.name} -- $trackName")
 
+            var isAvailable = rawTrack[READABLE] as Boolean
             val currentTracksNotAvailableIds = (Track.tracksNotAvailable[Apps.DEEZER] ?: emptyList()).map { it.id }
-            val currentTrackId = rawTrackWithSpecificMetadata[ID].toString()
-
+            val currentTrackId = rawTrack[ID].toString()
             val trackId = if (isAvailable || currentTrackId in currentTracksNotAvailableIds) {
                 currentTrackId
             } else {
@@ -112,27 +101,14 @@ object DeezerImport: DeezerApp(), Importer {
             }
 
             Track.createdTracks.filter { it.app.name == Apps.DEEZER.name }.firstOrNull { it.id == trackId }
-                ?: Track(artist, trackName, trackId, isAvailable, Apps.DEEZER)
+                ?: Track(listOf(artist), trackName, albumName, trackId, isAvailable, Apps.DEEZER)
                     .also { if (!isAvailable) Track.tracksNotAvailable.getOrPut(Apps.DEEZER) { mutableListOf(it) }.add(it) }
         }
     }
 
     private fun getAlternativeTrackId(trackName: String, artist: Artist): String? {
-        val rawTrackName = URLEncoder.encode(trackName, UTF_8)
-        val rawArtistName = URLEncoder.encode(artist.name, UTF_8)
-
-        val trackSearchURL = deezerSearchTrackByNameURL(rawTrackName, rawArtistName)
-        val rawFoundTracks = trackSearchURL.getURLResponse()
-
-        val foundTracks = (rawFoundTracks[DATA] as List<HashMap<String, *>>)
-            .ifEmpty { redoQueryIfHasProblematicWords(trackSearchURL, Apps.DEEZER) }
-
-        val track = foundTracks.firstOrNull {
-            val artistObject = it[ARTIST] as HashMap<String, *>
-
-            artistObject[NAME].toString().equals(artist.name, true) &&
-            it[READABLE] as Boolean
-        } ?: findTrackOnArtistTrackList(trackName, artist)
+        val track = searchTrackByNameAndArtist(trackName, listOf(artist))
+            ?: findTrackOnArtistTrackList(trackName, artist)
 
         return track?.get(ID).let { it?.toString() }
     }
@@ -164,14 +140,14 @@ object DeezerImport: DeezerApp(), Importer {
      * Hard search, currently unnecessary
      */
     private fun searchTrackByName(trackName: String, artist: Artist): HashMap<String, *>? {
-        val foundTracksObject = deezerSearchTrackByNameURL(trackName).getURLResponse()
+        val foundTracksObject = deezerSearchTrackURL(trackName).getURLResponse()
 
         var track: HashMap<String, *>? = null
         var current25FoundTracks = foundTracksObject[DATA] as List<HashMap<String, *>>?
 
         while (track == null) {
             track = current25FoundTracks?.firstOrNull {
-                UI.addSearching()
+                UI.addInProgressDots()
 
                 val trackId = it[ID].toString()
                 val currentFullTrack = deezerGetTrackByIdURL(trackId).getURLResponse()

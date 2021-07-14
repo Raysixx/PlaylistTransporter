@@ -5,6 +5,7 @@ import client.isSeparateFilesByPlaylist
 import client.playlistTracksPerFile
 import client.saveAs
 import client.saveWithName
+import model.Artist
 import model.Playlist
 import model.Track
 import ui.UI
@@ -14,7 +15,7 @@ import java.io.PrintWriter
 import kotlin.math.ceil
 
 @Suppress("EnumEntryName")
-object FileExporter {
+object FileExporter: Exporter {
     enum class SupportedExtensions {
         txt,
         csv
@@ -23,10 +24,10 @@ object FileExporter {
     private val playlistInFile = mutableMapOf<Playlist, MutableSet<Int>>()
     private val filesAlreadyWithHeader = mutableSetOf<String>()
 
-    fun exportPlaylistsToFile(playlists: List<Playlist>) {
-        eraseOldFiles(playlists)
+    override fun runExport(externalPlaylists: List<Playlist>) {
+        eraseOldFiles(externalPlaylists)
 
-        export(playlists)
+        export(externalPlaylists)
 
         UI.createDoneExportToFileScreen()
     }
@@ -85,8 +86,8 @@ object FileExporter {
 
     private fun getExportTrackMessage(track: Track): String {
         return when (saveAs) {
-            SupportedExtensions.txt.name -> "    ${track.artist.name} - ${track.name}"
-            SupportedExtensions.csv.name -> "${track.name};${track.artist.name};;;"
+            SupportedExtensions.txt.name -> "    ${Artist.getArtistsNames(track.artists)} -- ${track.name}"
+            SupportedExtensions.csv.name -> "${track.name};${Artist.getArtistsNames(track.artists, useSpace = false)};;;"
             else -> ""
         }
     }
@@ -142,4 +143,13 @@ object FileExporter {
     fun String.removeWindowsInvalidCharacters(): String {
         return this.replace("[\\\\/:*?\"<>|]".toRegex(), "")
     }
+
+    override fun addPlaylists(externalPlaylists: List<Playlist>, userId: String) {}
+    override fun addTracks(playlist: Playlist, externalTracks: List<Track>) {}
+    override fun getTracks(playlist: Playlist, externalTracks: List<Track>) = emptyList<Track>()
+    override fun searchTrack(currentTrack: Track): HashMap<String, *>? { return null }
+    override fun searchTrackByNameArtistAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? { return null }
+    override fun searchTrackByNameAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? { return null }
+    override fun searchTrackByNameAndArtist(currentTrack: Track, trackRawName: String): HashMap<String, *>? { return null }
+    override fun searchTrackByName(currentTrack: Track, trackRawName: String): HashMap<String, *>? { return null }
 }

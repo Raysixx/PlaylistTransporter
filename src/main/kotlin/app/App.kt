@@ -1,6 +1,6 @@
 package app
 
-import model.Utils
+import client.Utils
 
 @Suppress("ControlFlowWithEmptyBody")
 abstract class App: Utils(), AppInterface {

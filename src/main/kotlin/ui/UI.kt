@@ -23,10 +23,9 @@ import java.awt.image.BufferedImage
 import java.lang.Exception
 import kotlin.system.exitProcess
 
-
 object UI {
     private const val screenTitle = "PlaylistTransporter"
-    private const val version = "v2.0"
+    private const val version = "v2.2"
 
     private lateinit var screen: JFrame
     private lateinit var currentOperation: String
@@ -34,9 +33,13 @@ object UI {
 
     fun createActionScreen() {
         val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val panel = JPanel()
+
         val deezerToSpotifybutton = JButton("Deezer  >>  Spotify")
         val deezerToFilebutton = JButton("Deezer  >>  Arquivo")
-        val panel = JPanel()
+        val spotifyToDeezerbutton = JButton("Spotify  >>  Deezer")
+        val spotifyToFilebutton = JButton("Spotify  >>  Arquivo")
+
         val pane = frame.contentPane
 
         frame.layout = null
@@ -57,7 +60,7 @@ object UI {
             override fun mouseExited(e: MouseEvent?) {}
         })
         deezerToSpotifybutton.setBounds(
-            120,
+            27,
             65,
             150,
             40
@@ -74,7 +77,41 @@ object UI {
             override fun mouseExited(e: MouseEvent?) {}
         })
         deezerToFilebutton.setBounds(
-            120,
+            27,
+            155,
+            150,
+            40
+        )
+
+        spotifyToDeezerbutton.addMouseListener(object : MouseListener {
+            override fun mousePressed(e: MouseEvent?) {
+                currentAction = Action.SPOTIFY_TO_DEEZER
+            }
+
+            override fun mouseClicked(e: MouseEvent?) {}
+            override fun mouseReleased(e: MouseEvent?) {}
+            override fun mouseEntered(e: MouseEvent?) {}
+            override fun mouseExited(e: MouseEvent?) {}
+        })
+        spotifyToDeezerbutton.setBounds(
+            207,
+            65,
+            150,
+            40
+        )
+
+        spotifyToFilebutton.addMouseListener(object : MouseListener {
+            override fun mousePressed(e: MouseEvent?) {
+                currentAction = Action.SPOTIFY_TO_FILE
+            }
+
+            override fun mouseClicked(e: MouseEvent?) {}
+            override fun mouseReleased(e: MouseEvent?) {}
+            override fun mouseEntered(e: MouseEvent?) {}
+            override fun mouseExited(e: MouseEvent?) {}
+        })
+        spotifyToFilebutton.setBounds(
+            207,
             155,
             150,
             40
@@ -92,6 +129,8 @@ object UI {
 
         panel.add(deezerToSpotifybutton)
         panel.add(deezerToFilebutton)
+        panel.add(spotifyToDeezerbutton)
+        panel.add(spotifyToFilebutton)
         panel.add(label)
 
         panel.setBounds(
@@ -321,7 +360,7 @@ object UI {
     /**
      * Adds dynamic dots on the end of the message to represent search
      */
-    fun addSearching() {
+    fun addInProgressDots() {
         val currentText = label.text
 
         val messageLastIndex = currentText.indexOf("</div>")

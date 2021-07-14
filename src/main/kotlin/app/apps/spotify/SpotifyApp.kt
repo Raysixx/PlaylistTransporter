@@ -37,12 +37,12 @@ open class SpotifyApp: App() {
         Server.create(SpotifyExport.redirectUri, this)
         Desktop.getDesktop().browse(URI(spotifyAuthenticationURL()))
 
-        UI.updateOperation(EXPORT)
+        UI.updateOperation(operation!!.message)
         UI.createLoginScreen()
         super.generateToken()
     }
 
-    val scopes: String = SpotifyScopes.values().map { it.oficialName }
-        .let { it.reduce { acc, s -> "$acc $s" } }
+    override val scopes: String = SpotifyScopes.values().map { it.officialName }
+        .reduce { acc, s -> "$acc $s" }
         .let { URLEncoder.encode(it, UTF_8) }
 }

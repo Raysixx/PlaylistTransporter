@@ -1,10 +1,12 @@
 package app
 
+import client.Utils
+
 interface AppInterface {
 
-    enum class Operation {
-        IMPORT,
-        EXPORT
+    enum class Operation(val message: String) {
+        IMPORT(Utils.IMPORT),
+        EXPORT(Utils.EXPORT)
     }
 
     var isRunning: Boolean
@@ -21,4 +23,6 @@ interface AppInterface {
     fun generateToken()
     fun getToken(urlRedirected: String): String
     fun fillToken(token: String)
+
+    val scopes: String
 }

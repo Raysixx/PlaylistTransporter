@@ -3,7 +3,7 @@ package server
 import app.AppInterface
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpHandler
-import model.Utils
+import client.Utils
 import ui.UI
 
 object HttpHandler : HttpHandler {
