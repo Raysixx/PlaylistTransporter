@@ -1,13 +1,15 @@
 package client
 
-import app.apps.deezer.DeezerApp
+import app.apps.deezer.DeezerExport
 import app.apps.deezer.DeezerImport
-import exporter.FileExporter
-import exporter.FileExporter.removeWindowsInvalidCharacters
-import model.Playlist
 import app.apps.spotify.SpotifyExport
-import model.Utils.Companion.waitForAppFinish
-import model.Utils.Companion.waitForCurrentActionDefinition
+import app.apps.spotify.SpotifyImport
+import client.Utils.Companion.removeWindowsInvalidCharacters
+import exporter.FileExporter
+import model.Playlist
+import exporter.Exporter
+import importer.Importer
+import client.Utils.Companion.waitForCurrentActionDefinition
 import server.Server
 import ui.UI
 import java.io.File
@@ -21,14 +23,17 @@ var isSeparateFilesByPlaylist = false
 var playlistTracksPerFile: Int? = null
 
 @Volatile var currentAction: Action? = null
-enum class Action {
-    DEEZER_TO_SPOTIFY,
-    DEEZER_TO_FILE
-}
 
 enum class Apps {
     DEEZER,
     SPOTIFY
+}
+
+enum class Action(val importAndExportFunction: Pair<Importer, Exporter>) {
+    DEEZER_TO_SPOTIFY(DeezerImport to SpotifyExport),
+    DEEZER_TO_FILE(DeezerImport to FileExporter),
+    SPOTIFY_TO_DEEZER(SpotifyImport to DeezerExport),
+    SPOTIFY_TO_FILE(SpotifyImport to FileExporter),
 }
 
 @Suppress("ControlFlowWithEmptyBody")
@@ -41,20 +46,16 @@ fun main(args: Array<String>) {
         }
         waitForCurrentActionDefinition()
 
-        DeezerImport.runImport()
-        waitForAppFinish(DeezerApp())
+        val importer = currentAction!!.importAndExportFunction.first
+        val exporter = currentAction!!.importAndExportFunction.second
 
-        val importedPlaylists = Playlist.getPlaylistsFromSpecificApp(Apps.DEEZER)
+        importer.runImport()
 
-        when (currentAction) {
-            Action.DEEZER_TO_SPOTIFY -> {
-                SpotifyExport.runExport(importedPlaylists)
-            }
-            Action.DEEZER_TO_FILE -> {
-                FileExporter.exportPlaylistsToFile(importedPlaylists)
-            }
-            else -> TODO()
-        }
+        val importMethodName = importer.javaClass.name.let { it.substring(it.lastIndexOf('.') + 1) }
+        val appThatImported = Apps.values().first { importMethodName.startsWith(it.name, ignoreCase = true) }
+        val importedPlaylists = Playlist.getPlaylistsFromSpecificApp(appThatImported)
+
+        exporter.runExport(importedPlaylists)
     } catch (exception: Exception) {
         throw exception.also { UI.createErrorScreen(it.message!!) }
     } finally {
@@ -67,15 +68,6 @@ private fun treatArgs(args: Array<String>) {
         when {
             it.startsWith("saveWithName", true) -> saveWithName = it.getArgValueOnly().ifBlank { saveWithName }.removeWindowsInvalidCharacters()
             it.startsWith("saveAs", true) -> saveAs = it.getArgValueOnly().lowercase().ifBlank { saveAs }.also { extension -> checkSupportedExtension(extension) }
-
-            it.startsWith("currentAction") -> currentAction = it.getArgValueOnly().let { action ->
-                when {
-                    action.equals("deezerToSpotify", true) -> Action.DEEZER_TO_SPOTIFY
-                    action.equals("deezerToFile", true) -> Action.DEEZER_TO_FILE
-                    action.isBlank() -> null
-                    else -> throw Exception("Valor inválido para 'currentAction': $action")
-                }
-            }
 
             it.startsWith("exportFilePath", true) -> exportFilePath = it.getArgValueOnly().let { targetFilePath ->
                 if (targetFilePath.isNotBlank() && targetFilePath.last() != '/') "$targetFilePath/" else targetFilePath

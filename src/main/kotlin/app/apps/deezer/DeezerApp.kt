@@ -1,13 +1,17 @@
 package app.apps.deezer
 
 import app.App
+import client.Apps
 import com.github.kevinsawicki.http.HttpRequest
+import model.Artist
 import org.json.JSONObject
 import server.Server
 import ui.UI
 import java.awt.Desktop
 import java.net.URI
+import java.net.URLEncoder
 
+@Suppress("UNCHECKED_CAST")
 open class DeezerApp: App() {
     @Volatile override var isRunning: Boolean = false
 
@@ -35,8 +39,34 @@ open class DeezerApp: App() {
         Server.create(redirectUri, this)
         Desktop.getDesktop().browse(URI(deezerAuthenticationURL()))
 
-        UI.updateOperation(IMPORT)
+        UI.updateOperation(operation!!.message)
         UI.createLoginScreen()
         super.generateToken()
+    }
+
+    override val scopes: String = DeezerScopes.values().map { it.officialName }
+        .reduce { acc, s -> "$acc,$s" }
+        .let { URLEncoder.encode(it, UTF_8) }
+
+    protected fun searchTrackByNameAndArtist(trackName: String, artists: List<Artist>): HashMap<String, *>? {
+        val rawTrackName = URLEncoder.encode(trackName, UTF_8)
+
+        return artists.firstNotNullOfOrNull { artist ->
+            val rawArtistName = URLEncoder.encode(artist.name, UTF_8)
+
+            val trackSearchURL = deezerSearchTrackURL(rawTrackName, givenArtistName = rawArtistName)
+            val rawFoundTracks = trackSearchURL.getURLResponse()
+
+            val foundTracks = (rawFoundTracks[DATA] as List<HashMap<String, *>>)
+                .ifEmpty { redoQueryIfHasProblematicWords(trackSearchURL, Apps.DEEZER).first }
+                .sortedByDescending { it[TITLE].toString().equals(trackName, true) }
+
+            foundTracks.firstOrNull {
+                val artistObject = it[ARTIST] as HashMap<String, *>
+
+                artistObject[NAME].toString().equals(artist.name, true) &&
+                it[READABLE] as Boolean
+            }
+        }
     }
 }

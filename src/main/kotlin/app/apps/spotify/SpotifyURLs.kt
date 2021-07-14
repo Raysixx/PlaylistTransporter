@@ -1,10 +1,9 @@
 package app.apps.spotify
 
-import model.Utils
-import model.Utils.Companion.URLPlusToken
+import client.Utils
+import client.Utils.Companion.URLPlusToken
 
-
-enum class SpotifyScopes(val oficialName: String) {
+enum class SpotifyScopes(val officialName: String) {
     READ_PRIVATE_PLAYLISTS("playlist-read-private"),
     READ_COLLABORATIVE_PLAYLISTS("playlist-read-collaborative"),
     MODIFY_PUBLIC_PLAYLISTS("playlist-modify-public"),
@@ -13,6 +12,8 @@ enum class SpotifyScopes(val oficialName: String) {
 }
 
 fun spotifyAuthenticationURL() = "https://accounts.spotify.com/authorize?client_id=${SpotifyApp().appId}&response_type=code&redirect_uri=${SpotifyApp().redirectUri}&scope=${SpotifyApp().scopes}&show_dialog=true"
+
+fun spotifyGetUserPlaylistsURL(currentToken: String?) = "${URLPlusToken("${spotifyGetUserURL()}/playlists", currentToken)}&limit=50"
 
 fun spotifyGetTempTokenURL() = "https://accounts.spotify.com/api/token"
 fun spotifyGetTempTokenPostBodyTemplate(code: String) = "grant_type=authorization_code&code=${code}&redirect_uri=${SpotifyApp().redirectUri}&client_id=${SpotifyApp().appId}&client_secret=${SpotifyApp().secretKey}"
@@ -33,7 +34,8 @@ fun spotifySearchURL(keyword: String, whatToSearch: String, currentToken: String
     return "${URLPlusToken("https://api.spotify.com/v1/search", currentToken)}&q=${keyword}${filters}&type=${whatToSearch}&limit=50"
 }
 
-fun spotifySearchTrackURL(name: String, currentToken: String?, givenArtist: String? = null): String {
-    val artist = if (givenArtist == null) "" else "%20artist:$givenArtist"
-    return spotifySearchURL(name, Utils.TRACK, currentToken, artist)
+fun spotifySearchTrackURL(name: String, currentToken: String?, givenArtistName: String? = null, givenAlbumName: String? = null): String {
+    val album = if (givenAlbumName == null) "" else "%20album:$givenAlbumName"
+    val artist = if (givenArtistName == null) "" else "%20artist:$givenArtistName"
+    return spotifySearchURL(name, Utils.TRACK, currentToken, artist, album)
 }

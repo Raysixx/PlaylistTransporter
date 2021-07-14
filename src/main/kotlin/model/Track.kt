@@ -2,7 +2,7 @@ package model
 
 import client.Apps
 
-data class Track(val artist: Artist, val name: String, val id: String, val isAvailable: Boolean, val app: Apps) {
+data class Track(val artists: List<Artist>, val name: String, val albumName: String, val id: String, val isAvailable: Boolean, val app: Apps) {
     init {
         createdTracks.add(this)
     }
@@ -13,6 +13,6 @@ data class Track(val artist: Artist, val name: String, val id: String, val isAva
         val tracksNotFound = mutableMapOf<Apps, MutableList<Track>>()
         val tracksNotAvailable = mutableMapOf<Apps, MutableList<Track>>()
 
-        val externalTrackNameWithSameTrackOnOtherApp = mutableMapOf<String, Track>()
+        val externalTrackIdWithSameTrackOnOtherApp = mutableMapOf<String, Track>()
     }
 }
