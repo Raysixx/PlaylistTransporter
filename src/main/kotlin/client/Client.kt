@@ -2,10 +2,12 @@ package client
 
 import app.apps.deezer.DeezerExport
 import app.apps.deezer.DeezerImport
+import app.apps.file.FileApp
 import app.apps.spotify.SpotifyExport
 import app.apps.spotify.SpotifyImport
 import client.Utils.Companion.removeWindowsInvalidCharacters
-import exporter.FileExporter
+import app.apps.file.FileExport
+import app.apps.file.FileImport
 import model.Playlist
 import exporter.Exporter
 import importer.Importer
@@ -26,14 +28,17 @@ var playlistTracksPerFile: Int? = null
 
 enum class Apps {
     DEEZER,
-    SPOTIFY
+    SPOTIFY,
+    FILE
 }
 
 enum class Action(val importAndExportFunction: Pair<Importer, Exporter>) {
     DEEZER_TO_SPOTIFY(DeezerImport to SpotifyExport),
-    DEEZER_TO_FILE(DeezerImport to FileExporter),
+    DEEZER_TO_FILE(DeezerImport to FileExport),
     SPOTIFY_TO_DEEZER(SpotifyImport to DeezerExport),
-    SPOTIFY_TO_FILE(SpotifyImport to FileExporter),
+    SPOTIFY_TO_FILE(SpotifyImport to FileExport),
+    FILE_TO_DEEZER(FileImport to DeezerExport),
+    FILE_TO_SPOTIFY(FileImport to SpotifyExport)
 }
 
 @Suppress("ControlFlowWithEmptyBody")
@@ -98,7 +103,7 @@ private fun treatArgs(args: Array<String>) {
 }
 
 private fun checkSupportedExtension(extension: String) {
-    val supportedExtensions = FileExporter.SupportedExtensions.values().map { it.name }
+    val supportedExtensions = FileApp.Companion.SupportedExtensions.values().map { it.name }
     if (extension !in supportedExtensions) {
         throw Exception("Extensão '$extension' não suportada.")
     }

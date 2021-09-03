@@ -2,6 +2,7 @@ package app.apps.deezer
 
 import app.AppInterface
 import client.Apps
+import client.currentAction
 import exporter.Exporter
 import model.Artist
 import model.Playlist
@@ -19,7 +20,13 @@ object DeezerExport: DeezerApp(), Exporter {
             generateToken()
             fillCurrentCountry(currentToken!!)
 
-            addPlaylists(externalPlaylists.reversed(), getUserId())
+            val playlists = if (currentAction!!.importAndExportFunction.first.javaClass.name.contains("File", true)) {
+                externalPlaylists
+            } else {
+                externalPlaylists.reversed()
+            }
+
+            addPlaylists(playlists, getUserId())
 
             UI.createDoneExportPlaylistScreen(externalPlaylists)
         } finally {
