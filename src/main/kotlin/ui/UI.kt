@@ -1,5 +1,6 @@
 package ui
 
+import app.apps.file.FileApp
 import client.Action
 import client.Utils.Companion.removeWindowsInvalidCharacters
 import client.currentAction
@@ -11,34 +12,37 @@ import model.Playlist
 import server.Server
 import java.awt.event.MouseEvent
 import java.awt.event.MouseListener
-import javax.swing.JButton
-import javax.swing.JFrame
-import javax.swing.JPanel
-import javax.swing.JLabel
 import java.awt.event.WindowAdapter
 import java.awt.event.WindowEvent
+import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
-import java.awt.image.BufferedImage
-import java.lang.Exception
+import javax.swing.JButton
+import javax.swing.JFileChooser
+import javax.swing.JFrame
+import javax.swing.JLabel
+import javax.swing.JPanel
+import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.system.exitProcess
 
 object UI {
-    private const val screenTitle = "PlaylistTransporter"
-    private const val version = "v2.2"
+    const val appName = "PlaylistTransporter"
+    private const val version = "v3.0"
 
     private lateinit var screen: JFrame
     private lateinit var currentOperation: String
     private val label = JLabel()
 
     fun createActionScreen() {
-        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val frame = JFrame("$appName-$version").also { it.setIconImage() }
         val panel = JPanel()
 
-        val deezerToSpotifybutton = JButton("Deezer  >>  Spotify")
-        val deezerToFilebutton = JButton("Deezer  >>  Arquivo")
-        val spotifyToDeezerbutton = JButton("Spotify  >>  Deezer")
-        val spotifyToFilebutton = JButton("Spotify  >>  Arquivo")
+        val deezerToSpotifyButton = JButton("Deezer  >>  Spotify")
+        val deezerToFileButton = JButton("Deezer  >>  Arquivo")
+        val spotifyToDeezerButton = JButton("Spotify  >>  Deezer")
+        val spotifyToFileButton = JButton("Spotify  >>  Arquivo")
+        val fileToDeezer = JButton("Arquivo >> Deezer")
+        val fileToSpotify = JButton("Arquivo >> Spotify")
 
         val pane = frame.contentPane
 
@@ -46,10 +50,27 @@ object UI {
         pane.layout = null
         panel.layout = null
 
-        frame.setSize(400, 300)
+        frame.setSize(400, 350)
         frame.setLocationRelativeTo(null)
 
-        deezerToSpotifybutton.addMouseListener(object : MouseListener {
+        fileToDeezer.addMouseListener(object : MouseListener {
+            override fun mousePressed(e: MouseEvent?) {
+                currentAction = Action.FILE_TO_DEEZER
+            }
+
+            override fun mouseClicked(e: MouseEvent?) {}
+            override fun mouseReleased(e: MouseEvent?) {}
+            override fun mouseEntered(e: MouseEvent?) {}
+            override fun mouseExited(e: MouseEvent?) {}
+        })
+        fileToDeezer.setBounds(
+            27,
+            50,
+            150,
+            40
+        )
+
+        deezerToSpotifyButton.addMouseListener(object : MouseListener {
             override fun mousePressed(e: MouseEvent?) {
                 currentAction = Action.DEEZER_TO_SPOTIFY
             }
@@ -59,14 +80,14 @@ object UI {
             override fun mouseEntered(e: MouseEvent?) {}
             override fun mouseExited(e: MouseEvent?) {}
         })
-        deezerToSpotifybutton.setBounds(
+        deezerToSpotifyButton.setBounds(
             27,
-            65,
+            140,
             150,
             40
         )
 
-        deezerToFilebutton.addMouseListener(object : MouseListener {
+        deezerToFileButton.addMouseListener(object : MouseListener {
             override fun mousePressed(e: MouseEvent?) {
                 currentAction = Action.DEEZER_TO_FILE
             }
@@ -76,14 +97,31 @@ object UI {
             override fun mouseEntered(e: MouseEvent?) {}
             override fun mouseExited(e: MouseEvent?) {}
         })
-        deezerToFilebutton.setBounds(
+        deezerToFileButton.setBounds(
             27,
-            155,
+            230,
             150,
             40
         )
 
-        spotifyToDeezerbutton.addMouseListener(object : MouseListener {
+        fileToSpotify.addMouseListener(object : MouseListener {
+            override fun mousePressed(e: MouseEvent?) {
+                currentAction = Action.FILE_TO_SPOTIFY
+            }
+
+            override fun mouseClicked(e: MouseEvent?) {}
+            override fun mouseReleased(e: MouseEvent?) {}
+            override fun mouseEntered(e: MouseEvent?) {}
+            override fun mouseExited(e: MouseEvent?) {}
+        })
+        fileToSpotify.setBounds(
+            207,
+            50,
+            150,
+            40
+        )
+
+        spotifyToDeezerButton.addMouseListener(object : MouseListener {
             override fun mousePressed(e: MouseEvent?) {
                 currentAction = Action.SPOTIFY_TO_DEEZER
             }
@@ -93,14 +131,14 @@ object UI {
             override fun mouseEntered(e: MouseEvent?) {}
             override fun mouseExited(e: MouseEvent?) {}
         })
-        spotifyToDeezerbutton.setBounds(
+        spotifyToDeezerButton.setBounds(
             207,
-            65,
+            140,
             150,
             40
         )
 
-        spotifyToFilebutton.addMouseListener(object : MouseListener {
+        spotifyToFileButton.addMouseListener(object : MouseListener {
             override fun mousePressed(e: MouseEvent?) {
                 currentAction = Action.SPOTIFY_TO_FILE
             }
@@ -110,9 +148,9 @@ object UI {
             override fun mouseEntered(e: MouseEvent?) {}
             override fun mouseExited(e: MouseEvent?) {}
         })
-        spotifyToFilebutton.setBounds(
+        spotifyToFileButton.setBounds(
             207,
-            155,
+            230,
             150,
             40
         )
@@ -127,10 +165,12 @@ object UI {
             200
         )
 
-        panel.add(deezerToSpotifybutton)
-        panel.add(deezerToFilebutton)
-        panel.add(spotifyToDeezerbutton)
-        panel.add(spotifyToFilebutton)
+        panel.add(deezerToSpotifyButton)
+        panel.add(deezerToFileButton)
+        panel.add(spotifyToDeezerButton)
+        panel.add(spotifyToFileButton)
+        panel.add(fileToDeezer)
+        panel.add(fileToSpotify)
         panel.add(label)
 
         panel.setBounds(
@@ -153,7 +193,7 @@ object UI {
         val loginMessage = "Logue para $currentOperation as playlists."
         val closeMessage = "Essa mensagem se fechará automaticamente ao logar, ou você pode encerrar manualmente o app ao clicar em encerrar."
 
-        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val frame = JFrame("$appName-$version").also { it.setIconImage() }
         val button = JButton("Encerrar")
         val panel = JPanel()
         val textPanel = JPanel()
@@ -213,12 +253,12 @@ object UI {
         screen = frame
     }
 
-    fun createImportingScreen() {
+    fun createOperationScreen() {
         closeCurrentScreen()
 
-        val importingMessage = "$currentOperation..."
+        val operationMessage = "$currentOperation..."
 
-        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val frame = JFrame("$appName-$version").also { it.setIconImage() }
         val textPanel = JPanel()
         val pane = frame.contentPane
 
@@ -229,7 +269,7 @@ object UI {
         frame.setLocationRelativeTo(null)
 
         pane.add(textPanel)
-        updateMessage(importingMessage)
+        updateMessage(operationMessage)
         textPanel.add(label)
 
         textPanel.setBounds(
@@ -249,7 +289,7 @@ object UI {
     fun createDoneExportToFileScreen() {
         closeCurrentScreen()
 
-        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val frame = JFrame("$appName-$version").also { it.setIconImage() }
         val textPanel = JPanel()
         val pane = frame.contentPane
 
@@ -282,10 +322,51 @@ object UI {
         screen = frame
     }
 
+    fun createSelectFileScreen(): List<File> {
+        closeCurrentScreen()
+
+        val frame = JFrame("$appName-$version").also { it.setIconImage() }
+        val panel = JPanel()
+        val pane = frame.contentPane
+
+        frame.layout = null
+        pane.layout = null
+
+        frame.setSize(400, 300)
+        frame.setLocationRelativeTo(null)
+
+        val fileSelector = JFileChooser(exportFilePath).apply {
+            isVisible = true
+            isMultiSelectionEnabled = true
+            FileApp.Companion.SupportedExtensions.values().reversed().forEach {
+                fileFilter = FileNameExtensionFilter("${it.name} (*.${it.name})", it.name)
+            }
+            showOpenDialog(panel)
+        }
+
+        pane.add(panel)
+        panel.add(fileSelector)
+
+        panel.setBounds(
+            0,
+            90,
+            400,
+            300
+        )
+
+        frame.defaultCloseOperation = JFrame.EXIT_ON_CLOSE
+        frame.isVisible = true
+        frame.isAlwaysOnTop = true
+
+        screen = frame
+
+        return fileSelector.selectedFiles.toList()
+    }
+
     fun createDoneExportPlaylistScreen(exportedPlaylists: List<Playlist>) {
         closeCurrentScreen()
 
-        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val frame = JFrame("$appName-$version").also { it.setIconImage() }
         val textPanel = JPanel()
         val pane = frame.contentPane
 
@@ -321,7 +402,7 @@ object UI {
     fun createErrorScreen(message: String) {
         try { closeCurrentScreen() } catch (e: Exception) {}
 
-        val frame = JFrame("$screenTitle-$version").also { it.setIconImage() }
+        val frame = JFrame("$appName-$version").also { it.setIconImage() }
         val textPanel = JPanel()
         val pane = frame.contentPane
 

@@ -146,7 +146,17 @@ open class Utils {
 
             val symbol = if (this.contains("\"")) "\"" else "%22"
 
-            fun replaceTrack(string: String) = string.substring(string.getTrackIndex(), string.getArtistIndex()).replace(symbol, "").let { string.replaceRange(string.getTrackIndex(), string.getArtistIndex(), it) }
+            fun replaceTrack(string: String): String {
+                return try {
+                    string.substring(string.getTrackIndex(), string.getArtistIndex()).replace(symbol, "").let { string.replaceRange(string.getTrackIndex(), string.getArtistIndex(), it) }
+                } catch (e: Exception) {
+                    return try {
+                        string.substring(string.getTrackIndex(), string.getAlbumIndex()).replace(symbol, "").let { string.replaceRange(string.getTrackIndex(), string.getAlbumIndex(), it) }
+                    } catch (e: Exception) {
+                        string.substring(string.getTrackIndex()).replace(symbol, "").let { string.replaceRange(string.getTrackIndex(), string.length, it) }
+                    }
+                }
+            }
             fun replaceArtist(string: String) = string.substring(string.getArtistIndex(), string.getAlbumIndex()).replace(symbol, "").let { string.replaceRange(string.getArtistIndex(), string.getAlbumIndex(), it) }
             fun replaceAlbum(string: String) = string.substring(string.getAlbumIndex(), string.length).replace(symbol, "").let { string.replaceRange(string.getAlbumIndex(), string.length, it) }
             fun replaceTrackAndArtist(string: String) = string.substring(string.getTrackIndex(), string.getAlbumIndex()).replace(symbol, "").let { string.replaceRange(string.getTrackIndex(), string.getAlbumIndex(), it) }

@@ -1,11 +1,11 @@
-package exporter
+package app.apps.file
 
-import client.Utils.Companion.removeWindowsInvalidCharacters
 import client.exportFilePath
 import client.isSeparateFilesByPlaylist
 import client.playlistTracksPerFile
 import client.saveAs
 import client.saveWithName
+import exporter.Exporter
 import model.Artist
 import model.Playlist
 import model.Track
@@ -14,21 +14,24 @@ import java.io.File
 import java.io.FileWriter
 import java.io.PrintWriter
 import kotlin.math.ceil
+import app.apps.file.FileApp.Companion.SupportedExtensions
 
-@Suppress("EnumEntryName")
-object FileExporter: Exporter {
-    enum class SupportedExtensions {
-        txt,
-        csv
-    }
-
+@Suppress("MoveLambdaOutsideParentheses")
+object FileExport: FileApp(), Exporter {
     private val playlistInFile = mutableMapOf<Playlist, MutableSet<Int>>()
     private val filesAlreadyWithHeader = mutableSetOf<String>()
+    private val createdFiles = mutableSetOf<File>()
 
     override fun runExport(externalPlaylists: List<Playlist>) {
         eraseOldFiles(externalPlaylists)
 
         export(externalPlaylists)
+
+        createdFiles.onEach { file ->
+            PrintWriter(FileWriter(file, true)).use {
+                it.print(waterMark)
+            }
+        }
 
         UI.createDoneExportToFileScreen()
     }
@@ -39,11 +42,12 @@ object FileExporter: Exporter {
                 saveWithName = playlist.title.removeWindowsInvalidCharacters()
             }
 
-            val file = givenFile ?: File("$exportFilePath$saveWithName.$saveAs").apply { if (!this.exists()) this.createNewFile() }
+            val file = (givenFile ?: File("$exportFilePath$saveWithName.$saveAs").apply { if (!this.exists()) this.createNewFile() })
+                .also { createdFiles.add(it) }
 
             PrintWriter(FileWriter(file, true)).use { out ->
                 if (saveAs == SupportedExtensions.csv.name && file.name !in filesAlreadyWithHeader) {
-                    out.println("Title;Artist;Album;isrc").also { filesAlreadyWithHeader.add(file.name) }
+                    out.println(SupportedExtensions.csv.header).also { filesAlreadyWithHeader.add(file.name) }
                 }
 
                 out.println(getExportPlaylistMessage(playlist, getTracksStartingFrom))
@@ -61,16 +65,16 @@ object FileExporter: Exporter {
                     tracksQuantity
                 }
 
-                playlist.tracks.toList().subList(getTracksStartingFrom, scopeLimit).forEachIndexed { index, track ->
-                    if (playlistTracksPerFile != null && index == playlistTracksPerFile!!) {
+                playlist.tracks.subList(getTracksStartingFrom, scopeLimit).forEachIndexed { index, track ->
+                    if (playlistTracksPerFile == null || index != playlistTracksPerFile!!) {
+                        out.println(getExportTrackMessage(playlist, track, getTracksStartingFrom + index + 1))
+                    } else {
                         val nextFile = getNextFile(playlist)
                         export(listOf(playlist), nextFile, getTracksStartingFrom + playlistTracksPerFile!!)
-                    } else {
-                        out.println(getExportTrackMessage(track))
                     }
                 }
 
-                if (!isSeparateFilesByPlaylist) out.println()
+                out.println("\n\n")
             }
         }
     }
@@ -80,15 +84,29 @@ object FileExporter: Exporter {
 
         return when (saveAs) {
             SupportedExtensions.txt.name -> "Playlist ${playlist.title}: ($currentTracksScope) de ${playlist.tracks.size}"
-            SupportedExtensions.csv.name -> "${playlist.title};;;;"
+            SupportedExtensions.csv.name -> ""
             else -> ""
         }
     }
 
-    private fun getExportTrackMessage(track: Track): String {
+    private fun getExportTrackMessage(playlist: Playlist, track: Track, index: Int): String {
+        val isAvailable = track.isAvailable.let { if (it) availableFlag else notAvailableFlag }
+
         return when (saveAs) {
-            SupportedExtensions.txt.name -> "    ${Artist.getArtistsNames(track.artists)} -- ${track.name}"
-            SupportedExtensions.csv.name -> "${track.name};${Artist.getArtistsNames(track.artists, useSpace = false)};;;"
+            SupportedExtensions.txt.name -> "    $index - ${Artist.getArtistsNames(track.artists)} -- ${track.name} <$isAvailable>"
+            SupportedExtensions.csv.name -> {
+                playlist.title +
+                separator +
+                track.name +
+                separator +
+                Artist.getArtistsNames(track.artists, useSpace = false) +
+                separator +
+                track.albumName +
+                separator +
+                separator +
+                isAvailable +
+                separator
+            }
             else -> ""
         }
     }
@@ -103,8 +121,7 @@ object FileExporter: Exporter {
                 }
                     &&
                 file.extension == saveAs
-            }
-            ?.forEach { it.delete() }
+            }?.forEach { it.delete() }
     }
 
     private fun getNextFile(playlist: Playlist): File {
@@ -118,7 +135,7 @@ object FileExporter: Exporter {
             file = File("$exportFilePath$saveWithName$currentFileNumber.$saveAs")
         }
 
-        playlistInFile.getOrPut(playlist) { mutableSetOf() }.add(currentFileNumber)
+        playlistInFile.getOrPut(playlist, { mutableSetOf() }).add(currentFileNumber)
 
         if (!file.exists()) {
             file.createNewFile()
@@ -144,9 +161,9 @@ object FileExporter: Exporter {
     override fun addPlaylists(externalPlaylists: List<Playlist>, userId: String) {}
     override fun addTracks(playlist: Playlist, externalTracks: List<Track>) {}
     override fun getTracks(playlist: Playlist, externalTracks: List<Track>) = emptyList<Track>()
-    override fun searchTrack(currentTrack: Track): HashMap<String, *>? { return null }
-    override fun searchTrackByNameArtistAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? { return null }
-    override fun searchTrackByNameAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? { return null }
-    override fun searchTrackByNameAndArtist(currentTrack: Track, trackRawName: String): HashMap<String, *>? { return null }
-    override fun searchTrackByName(currentTrack: Track, trackRawName: String): HashMap<String, *>? { return null }
+    override fun searchTrack(currentTrack: Track): HashMap<String, *>? = null
+    override fun searchTrackByNameArtistAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? = null
+    override fun searchTrackByNameAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? = null
+    override fun searchTrackByNameAndArtist(currentTrack: Track, trackRawName: String): HashMap<String, *>? = null
+    override fun searchTrackByName(currentTrack: Track, trackRawName: String): HashMap<String, *>? = null
 }

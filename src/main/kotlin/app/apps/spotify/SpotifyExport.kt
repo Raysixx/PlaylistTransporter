@@ -2,6 +2,7 @@ package app.apps.spotify
 
 import app.AppInterface
 import client.Apps
+import client.currentAction
 import com.github.kevinsawicki.http.HttpRequest
 import exporter.Exporter
 import model.Artist
@@ -20,7 +21,13 @@ object SpotifyExport: SpotifyApp(), Exporter {
             generateToken()
             fillCurrentCountry(currentToken!!)
 
-            addPlaylists(externalPlaylists.reversed(), getUserId())
+            val playlists = if (currentAction!!.importAndExportFunction.first.javaClass.name.contains("File", true)) {
+                externalPlaylists
+            } else {
+                externalPlaylists.reversed()
+            }
+
+            addPlaylists(playlists, getUserId())
 
             UI.createDoneExportPlaylistScreen(externalPlaylists)
         } finally {

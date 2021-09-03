@@ -2,10 +2,8 @@ package app.apps.deezer
 
 import app.AppInterface
 import client.Apps
-import client.currentAction
 import client.playlistToImport
 import com.github.kevinsawicki.http.HttpRequest
-import exporter.FileExporter
 import ui.UI
 import importer.Importer
 import model.Artist
@@ -13,7 +11,7 @@ import model.Playlist
 import model.Track
 import org.json.JSONObject
 
-@Suppress("UNCHECKED_CAST", "ControlFlowWithEmptyBody", "ComplexRedundantLet", "SimplifiableCallChain")
+@Suppress("UNCHECKED_CAST", "ControlFlowWithEmptyBody", "ComplexRedundantLet", "SimplifiableCallChain", "MoveLambdaOutsideParentheses")
 object DeezerImport: DeezerApp(), Importer {
     override fun runImport() {
         isRunning = true
@@ -95,7 +93,7 @@ object DeezerImport: DeezerApp(), Importer {
             var isAvailable = rawTrack[READABLE] as Boolean
             val currentTracksNotAvailableIds = (Track.tracksNotAvailable[Apps.DEEZER] ?: emptyList()).map { it.id }
             val currentTrackId = rawTrack[ID].toString()
-            val trackId = if (isAvailable || currentTrackId in currentTracksNotAvailableIds || currentAction!!.importAndExportFunction.second == FileExporter) {
+            val trackId = if (isAvailable || currentTrackId in currentTracksNotAvailableIds) {
                 currentTrackId
             } else {
                 getAlternativeTrackId(trackName, artist)?.also { isAvailable = true }
@@ -104,7 +102,7 @@ object DeezerImport: DeezerApp(), Importer {
 
             Track.createdTracks.filter { it.app.name == Apps.DEEZER.name }.firstOrNull { it.id == trackId }
                 ?: Track(listOf(artist), trackName, albumName, trackId, isAvailable, Apps.DEEZER)
-                    .also { if (!isAvailable) Track.tracksNotAvailable.getOrPut(Apps.DEEZER) { mutableListOf(it) }.add(it) }
+                    .also { if (!isAvailable) Track.tracksNotAvailable.getOrPut(Apps.DEEZER, { mutableListOf() }).add(it) }
         }
     }
 

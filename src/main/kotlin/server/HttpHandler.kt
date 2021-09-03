@@ -15,11 +15,10 @@ object HttpHandler : HttpHandler {
         val currentApp = Server.currentApp
 
         UI.updateOperation(if (currentApp.operation == AppInterface.Operation.IMPORT) Utils.IMPORTING else Utils.EXPORTING)
-        UI.createImportingScreen()
+        UI.createOperationScreen()
 
         val urlRedirected = exchange.requestURI.toString()
 
-        currentApp.getToken(urlRedirected)
-            .let { currentApp.fillToken(it) }
+        currentApp.getToken(urlRedirected).let { currentApp.fillToken(it) }
     }
 }
