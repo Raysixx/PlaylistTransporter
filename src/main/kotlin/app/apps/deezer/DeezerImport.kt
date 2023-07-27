@@ -3,15 +3,15 @@ package app.apps.deezer
 import app.AppInterface
 import client.Apps
 import client.playlistToImport
-import com.github.kevinsawicki.http.HttpRequest
 import ui.UI
-import importer.Importer
+import app.Importer
 import model.Artist
+import model.JsonFoundPlaylists
+import model.JsonFoundTracks
 import model.Playlist
 import model.Track
-import org.json.JSONObject
 
-@Suppress("UNCHECKED_CAST", "ControlFlowWithEmptyBody", "ComplexRedundantLet", "SimplifiableCallChain", "MoveLambdaOutsideParentheses")
+@Suppress("ComplexRedundantLet", "MoveLambdaOutsideParentheses")
 object DeezerImport: DeezerApp(), Importer {
     override fun runImport() {
         isRunning = true
@@ -19,9 +19,9 @@ object DeezerImport: DeezerApp(), Importer {
 
         try {
             generateToken()
-            fillCurrentCountry(currentToken!!)
+            fillUser(currentToken!!)
 
-            deezerGetUserPlaylistsURL(currentToken).getURLResponse()
+            deezerGetUserPlaylistsURL(currentToken).getURLResponse<DeezerFoundPlaylists>()
                 .let { fillPlaylists(it) }
 
             Playlist.createdPlaylists.filter { it.app.name == Apps.DEEZER.name }.ifEmpty {
@@ -33,136 +33,123 @@ object DeezerImport: DeezerApp(), Importer {
         }
     }
 
-    override fun fillPlaylists(rawPlaylistsMap: HashMap<String, *>) {
-        val rawPlaylists = rawPlaylistsMap[DATA] as List<HashMap<String, *>>
-        rawPlaylists.forEach { rawPlaylist ->
-            val title = rawPlaylist[TITLE].toString()
-            val id = rawPlaylist[ID].toString()
-
-            if (playlistToImport.isNotEmpty() && title.uppercase() !in playlistToImport) {
+    override fun fillPlaylists(serverFoundPlaylists: JsonFoundPlaylists) {
+        (serverFoundPlaylists as DeezerFoundPlaylists).data.forEach { serverPlaylist ->
+            val serverPlaylistTitle = serverPlaylist.title
+            if (playlistToImport.isNotEmpty() && serverPlaylistTitle.uppercase() !in playlistToImport) {
                 return@forEach
             }
 
-            UI.updateMessage("$IMPORTING_PLAYLIST $title")
+            UI.updateMessage("$IMPORTING_PLAYLIST $serverPlaylistTitle")
 
-            val playlistRawTracksURL = rawPlaylist[TRACKLIST].toString()
-            val playlistRawTracks = URLPlusToken(playlistRawTracksURL, currentToken).getURLResponse()
+            val serverPlaylistFoundTracks = URLPlusToken(serverPlaylist.tracklistUrl, currentToken).getURLResponse<DeezerFoundTracks>()
 
-            Playlist(title, id, Apps.DEEZER)
+            Playlist(serverPlaylistTitle, serverPlaylist.id, Apps.DEEZER)
                 .apply {
-                    getTracks(this.title, playlistRawTracks).let { trackList ->
+                    getTracks(serverPlaylistTitle, serverPlaylistFoundTracks).let { trackList ->
                         this.tracks.addAll(trackList)
                     }
                 }
         }
     }
 
-    override fun getTracks(playlistTitle: String, playlistRawTracks: HashMap<String, *>): List<Track> {
+    override fun getTracks(serverPlaylistTitle: String, serverPlaylistServerTracks: JsonFoundTracks): List<Track> {
         val allTracks = mutableListOf<Track>()
 
-        var current25Tracks: HashMap<String, *>? = playlistRawTracks
-        while (current25Tracks != null) {
-            val rawTracks = current25Tracks[DATA] as List<HashMap<String, *>>
-
-            getCurrentTracks(rawTracks, playlistTitle).let {
+        var current25ServerTracks: DeezerFoundTracks? = serverPlaylistServerTracks as DeezerFoundTracks
+        while (current25ServerTracks != null) {
+            getCurrentTracks(current25ServerTracks.data, serverPlaylistTitle).let {
                 allTracks.addAll(it)
             }
 
-            current25Tracks = (current25Tracks[NEXT] as String?)?.getURLResponse()
+            current25ServerTracks = current25ServerTracks.next?.getURLResponse()
         }
 
         return allTracks
     }
 
-    private fun getCurrentTracks(rawTracks: List<HashMap<String, *>>, playlistTitle: String): List<Track> {
-        return rawTracks.map { rawTrack ->
-            val artist = (rawTrack[ARTIST] as HashMap<String, *>).let {
-                val artistName = it[NAME].toString()
-                val artistId = it[ID].toString()
-
-                Artist(artistName, artistId, Apps.DEEZER)
+    private fun getCurrentTracks(serverTracks: List<DeezerTrack>, serverPlaylistTitle: String): List<Track> {
+        return serverTracks.map { serverTrack ->
+            val artist = serverTrack.artist.let {
+                Artist(it.name, it.id, Apps.DEEZER)
             }
 
-            val trackName = rawTrack[TITLE].toString()
-            val albumName = (rawTrack[ALBUM] as HashMap<String, *>).let { it[TITLE].toString() }
+            val serverTrackName = serverTrack.title
+            val serverTrackAlbumName = serverTrack.album.title
 
-            UI.updateMessage("$IMPORTING_PLAYLIST $playlistTitle <br>" +
+            UI.updateMessage("$IMPORTING_PLAYLIST $serverPlaylistTitle <br>" +
                     "$SEARCHING_ON_SERVER $FROM_DEEZER: <br>" +
-                    "${artist.name} -- $trackName")
+                    "${artist.name} -- $serverTrackName")
 
-            var isAvailable = rawTrack[READABLE] as Boolean
+            var isAvailable = serverTrack.readable
             val currentTracksNotAvailableIds = (Track.tracksNotAvailable[Apps.DEEZER] ?: emptyList()).map { it.id }
-            val currentTrackId = rawTrack[ID].toString()
-            val trackId = if (isAvailable || currentTrackId in currentTracksNotAvailableIds) {
-                currentTrackId
+
+            val currentServerTrackId = serverTrack.id
+            val serverTrackId = if (isAvailable || currentServerTrackId in currentTracksNotAvailableIds) {
+                currentServerTrackId
             } else {
-                getAlternativeTrackId(trackName, artist)?.also { isAvailable = true }
-                    ?: currentTrackId
+                getAlternativeTrackId(serverTrackName, artist)?.also { isAvailable = true }
+                    ?: currentServerTrackId
             }
 
-            Track.createdTracks.filter { it.app.name == Apps.DEEZER.name }.firstOrNull { it.id == trackId }
-                ?: Track(listOf(artist), trackName, albumName, trackId, isAvailable, Apps.DEEZER)
+            Track.createdTracks.filter { it.app.name == Apps.DEEZER.name }.firstOrNull { it.id == serverTrackId }
+                ?: Track(listOf(artist), serverTrackName, serverTrackAlbumName, serverTrackId, isAvailable, Apps.DEEZER)
                     .also { if (!isAvailable) Track.tracksNotAvailable.getOrPut(Apps.DEEZER, { mutableListOf() }).add(it) }
         }
     }
 
-    private fun getAlternativeTrackId(trackName: String, artist: Artist): String? {
-        val track = searchTrackByNameAndArtist(trackName, listOf(artist))
-            ?: findTrackOnArtistTrackList(trackName, artist)
+    private fun getAlternativeTrackId(serverTrackName: String, artist: Artist): String? {
+        val serverTrack = searchTrackByNameAndArtist(serverTrackName, listOf(artist))
+            ?: findTrackOnArtistTrackList(serverTrackName, artist)
 
-        return track?.get(ID).let { it?.toString() }
+        return serverTrack?.id
     }
 
-    private fun findTrackOnArtistTrackList(trackName: String, artist: Artist): HashMap<String, *>? {
-        val rawArtist = deezerGetArtistURL(artist.id).getURLResponse()
+    private fun findTrackOnArtistTrackList(serverTrackName: String, artist: Artist): DeezerTrack? {
+        val serverArtist = deezerGetArtistURL(artist.id).getURLResponse<DeezerArtist>()
+        var serverArtistTracklist = serverArtist.tracklistUrl.getURLResponse<DeezerFoundTracks>()
 
-        var rawArtistTracklist = (rawArtist[TRACKLIST] as String).getURLResponse()
+        var serverAlternativeTrack: DeezerTrack? = null
 
-        var alternativeTrack: HashMap<String, *>? = null
-        while (alternativeTrack == null) {
-            val artistTracklist = rawArtistTracklist[DATA] as List<HashMap<String, *>>
-
-            alternativeTrack = artistTracklist.firstOrNull {
-                it[TITLE] == trackName &&
-                it[READABLE] as Boolean
+        while (serverAlternativeTrack == null) {
+            serverAlternativeTrack = serverArtistTracklist.data.firstOrNull {
+                it.title == serverTrackName && it.readable
             }
 
-            if (alternativeTrack == null) {
-                rawArtistTracklist = (rawArtistTracklist[NEXT] as String?)?.getURLResponse()
+            if (serverAlternativeTrack == null) {
+                serverArtistTracklist = serverArtistTracklist.next?.getURLResponse<DeezerFoundTracks>()
                     ?: break
             }
         }
 
-        return alternativeTrack
+        return serverAlternativeTrack
     }
 
     /**
      * Hard search, currently unnecessary
      */
-    private fun searchTrackByName(trackName: String, artist: Artist): HashMap<String, *>? {
-        val foundTracksObject = deezerSearchTrackURL(trackName).getURLResponse()
+    private fun searchTrackByName(trackName: String, artist: Artist): DeezerTrack? {
+        val foundTracks = deezerSearchTrackURL(trackName).getURLResponse<DeezerFoundTracks>()
 
-        var track: HashMap<String, *>? = null
-        var current25FoundTracks = foundTracksObject[DATA] as List<HashMap<String, *>>?
+        var track: DeezerTrack? = null
+        var current25FoundTracks = foundTracks.data
 
         while (track == null) {
-            track = current25FoundTracks?.firstOrNull {
+            track = current25FoundTracks.firstOrNull {
                 UI.addInProgressDots()
 
-                val trackId = it[ID].toString()
-                val currentFullTrack = deezerGetTrackByIdURL(trackId).getURLResponse()
+                val trackId = it.id
+                val currentFullTrack = deezerGetTrackByIdURL(trackId).getURLResponse<DeezerTrack>()
 
-                val contributors = currentFullTrack[CONTRIBUTORS] as List<HashMap<String, *>>
+                val isSameArtist = currentFullTrack.contributors?.any { contributor -> contributor.name == artist.name } ?: false
 
-                contributors.any { contributor -> contributor[NAME] == artist.name } &&
-                it[READABLE] as Boolean
+                isSameArtist && it.readable
             }
 
             if (track == null) {
-                val next25TracksURL = (foundTracksObject[NEXT] as String?) ?: break
-                val next25TracksObject = (HttpRequest.get(next25TracksURL).body() as String).let { response -> JSONObject(response).toMap() as HashMap<String, *> }
+                val next25TracksURL = foundTracks.next ?: break
 
-                current25FoundTracks = next25TracksObject[DATA] as List<HashMap<String, *>>
+                current25FoundTracks = next25TracksURL.getURLResponse<DeezerFoundTracks>().data
             }
         }
 

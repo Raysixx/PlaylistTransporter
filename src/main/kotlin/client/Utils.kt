@@ -1,12 +1,20 @@
 package client
 
+import app.apps.deezer.DeezerFoundTracks
+import app.apps.deezer.DeezerTrack
+import app.apps.spotify.SpotifyFoundTracksResult
+import app.apps.spotify.SpotifyFoundTracksWithTrackItem
+import app.apps.spotify.SpotifyFoundTracksWithoutTrackItem
+import app.apps.spotify.SpotifyTrack
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.kevinsawicki.http.HttpRequest
 import model.Artist
+import model.JsonTrack
 import model.Playlist
-import org.json.JSONObject
 import java.net.URLEncoder
 
-@Suppress("PropertyName", "UNCHECKED_CAST", "ControlFlowWithEmptyBody", "RegExpRedundantEscape")
+@Suppress("ControlFlowWithEmptyBody", "RegExpRedundantEscape")
 open class Utils {
 
     enum class PossiblyProblematicWordsToBeOnSearches(val word: Any) {
@@ -25,25 +33,7 @@ open class Utils {
 
     companion object {
         const val CODE = "code"
-        const val DATA = "data"
-        const val ARTIST = "artist"
-        const val ARTISTS = "artists"
-        const val NAME = "name"
-        const val TITLE = "title"
-        const val ALBUM = "album"
-        const val ID = "id"
-        const val TRACKLIST = "tracklist"
         const val TRACK = "track"
-        const val TRACKS = "tracks"
-        const val NEXT = "next"
-        const val ITEMS = "items"
-        const val COUNTRY = "country"
-        const val READABLE = "readable"
-        const val CONTRIBUTORS = "contributors"
-        const val POPULARITY = "popularity"
-        const val RANK = "rank"
-        const val HREF = "href"
-        const val AVAILABLE_MARKETS = "available_markets"
         const val REMIX = "remix"
 
         const val SEARCHING_ON_SERVER = "Procurando no servidor"
@@ -60,8 +50,6 @@ open class Utils {
         const val IMPORTING_PLAYLIST = "$IMPORTING playlist"
         const val EXPORTING_PLAYLIST = "$EXPORTING playlist"
 
-        const val ACCESS_TOKEN = "access_token"
-
         const val UTF_8 = "UTF-8"
 
         fun getCode(rawURL: String) = rawURL.substring(rawURL.lastIndexOf("$CODE=") + 5, rawURL.lastIndex + 1)
@@ -72,30 +60,18 @@ open class Utils {
             return "${url}${symbol}access_token=${currentToken}"
         }
 
-        fun redoQueryIfHasProblematicWords(url: String, app: Apps): Pair<List<HashMap<String, *>>, String?> {
+        fun redoQueryIfHasProblematicWords(url: String, app: Apps): Pair<List<JsonTrack>, String?> {
             val targetUrl = getStringWithoutProblematicWords(url)
 
             return if (targetUrl != url) {
-                val rawResponse = targetUrl.getURLResponse()
-
                 when (app.name) {
-                    Apps.DEEZER.name -> deezerRedoQueryWithoutProblematicWord(rawResponse)
-                    Apps.SPOTIFY.name -> spotifyRedoQueryWithoutProblematicWord(rawResponse)
-                    else -> emptyList<HashMap<String, *>>() to null
+                    Apps.DEEZER.name -> targetUrl.getURLResponse<DeezerFoundTracks>().let { it.data to it.next }
+                    Apps.SPOTIFY.name -> targetUrl.getURLResponse<SpotifyFoundTracksResult>().tracks.items to null
+                    else -> emptyList<JsonTrack>() to null
                 }
             } else {
-                emptyList<HashMap<String, *>>() to null
+                emptyList<JsonTrack>() to null
             }
-        }
-
-        private fun deezerRedoQueryWithoutProblematicWord(response: HashMap<String, *>): Pair<List<HashMap<String, *>>, String?> {
-            return response[DATA] as List<HashMap<String, *>> to response[NEXT] as String?
-        }
-
-        private fun spotifyRedoQueryWithoutProblematicWord(response: HashMap<String, *>): Pair<List<HashMap<String, *>>, String?> {
-            val foundTracksObject = response.entries.first().value as HashMap<String, *>
-
-            return foundTracksObject[ITEMS] as List<HashMap<String, *>> to null
         }
 
         fun getStringWithoutProblematicWords(string: String, isToEncode: Boolean = true): String {
@@ -179,52 +155,17 @@ open class Utils {
             }
         }
 
-        fun HttpRequest.getRequestResponse(): HashMap<String, *> {
-            val requestBody = this.body() as String
+        inline fun <reified T> String.getURLResponse() = HttpRequest.get(this).getRequestResponse<T>()
+        inline fun <reified T> HttpRequest.getRequestResponse() = jacksonObjectMapper().readValue<T>(body())
 
-            val responseJson = try {
-                JSONObject(requestBody)
-            } catch (exception: Exception) {
-                throw Exception(requestBody)
+        fun String.doURLPostWith(body: String) { HttpRequest.post(this).send(body).body() }
+        inline fun <reified T> String.doURLPostWith(body: String) = HttpRequest.post(this).send(body).body().let {
+                jacksonObjectMapper().readValue<T>(it)
             }
 
-            return responseJson.toMap() as HashMap<String, *>
-        }
-
-        fun String.getURLResponse(): HashMap<String, *> {
-            return HttpRequest.get(this).getRequestResponse()
-        }
-
-        fun String.doURLPostWith(body: String, getResponse: Boolean = false): HashMap<String, *> {
-            val response = HttpRequest.post(this).send(body).body() as String
-
-            if (!getResponse) {
-                return hashMapOf<String, Any>()
-            }
-
-            val responseJson = try {
-                JSONObject(response)
-            } catch (exception: Exception) {
-                throw Exception(response)
-            }
-
-            return responseJson.toMap() as HashMap<String, *>
-        }
-
-        fun String.doURLPost(getResponse: Boolean = false): HashMap<String, *> {
-            val response = HttpRequest.post(this).send("").body() as String
-
-            if (!getResponse) {
-                return hashMapOf<String, Any>()
-            }
-
-            val responseJson = try {
-                JSONObject(response)
-            } catch (exception: Exception) {
-                throw Exception(response)
-            }
-
-            return responseJson.toMap() as HashMap<String, *>
+        fun String.doURLPost() { HttpRequest.post(this).send("").body() }
+        inline fun <reified T> String.doURLPost() = HttpRequest.post(this).send("").body().let {
+            jacksonObjectMapper().readValue<T>(it)
         }
 
         fun String.removeWindowsInvalidCharacters(): String {

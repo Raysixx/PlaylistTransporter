@@ -3,7 +3,7 @@ package app.apps.deezer
 import app.AppInterface
 import client.Apps
 import client.currentAction
-import exporter.Exporter
+import app.Exporter
 import model.Artist
 import model.Playlist
 import model.Track
@@ -18,7 +18,7 @@ object DeezerExport: DeezerApp(), Exporter {
 
         try {
             generateToken()
-            fillCurrentCountry(currentToken!!)
+            fillUser(currentToken!!)
 
             val playlists = if (currentAction!!.importAndExportFunction.first.javaClass.name.contains("File", true)) {
                 externalPlaylists
@@ -26,19 +26,13 @@ object DeezerExport: DeezerApp(), Exporter {
                 externalPlaylists.reversed()
             }
 
-            addPlaylists(playlists, getUserId())
+            addPlaylists(playlists, user!!.id)
 
             UI.createDoneExportPlaylistScreen(externalPlaylists)
         } finally {
             isRunning = false
             operation = null
         }
-    }
-
-    private fun getUserId(): String {
-        val user = URLPlusToken(deezerGetUserURL(), currentToken).getURLResponse()
-
-        return user[ID].toString()
     }
 
     override fun addPlaylists(externalPlaylists: List<Playlist>, userId: String) {
@@ -51,320 +45,253 @@ object DeezerExport: DeezerApp(), Exporter {
     }
 
     private fun createPlaylist(playlist: Playlist, userId: String): Playlist {
-        val playlistRawName = URLEncoder.encode(playlist.title, UTF_8)
-        val newPlaylist = deezerCreatePlaylistURL(userId, playlistRawName, currentToken).doURLPost(getResponse = true)
-        val newPlaylistId = newPlaylist[ID].toString()
+        val playlistEncodedName = URLEncoder.encode(playlist.title, UTF_8)
+        val newPlaylist = deezerCreatePlaylistURL(userId, playlistEncodedName, currentToken).doURLPost<DeezerPlaylist>()
 
-        return Playlist(playlist.title, newPlaylistId, Apps.DEEZER)
+        return Playlist(playlist.title, newPlaylist.id, Apps.DEEZER)
     }
 
-    override fun addTracks(playlist: Playlist, externalTracks: List<Track>) {
-        val deezerTracks = getTracks(playlist, externalTracks)
-            .also { playlist.tracks.addAll(it) }
+    override fun addTracks(createdPlaylist: Playlist, externalTracks: List<Track>) {
+        val serverTracks = getTracks(createdPlaylist, externalTracks)
+            .also { createdPlaylist.tracks.addAll(it) }
 
-        UI.updateMessage("$EXPORTING_PLAYLIST ${playlist.title}")
+        UI.updateMessage("$EXPORTING_PLAYLIST ${createdPlaylist.title}")
 
-        deezerTracks.map { it.id }.distinct().chunked(50).forEach {
+        serverTracks.map { it.id }.distinct().chunked(50).forEach {
             UI.addInProgressDots()
 
-            val current50TracksIds = it.reduce { acc, s -> "$acc,$s" }.let { currentTracksIds -> URLEncoder.encode(currentTracksIds, UTF_8) }
+            val serverCurrent50TracksIds = it.reduce { acc, s -> "$acc,$s" }.let { currentTracksIds -> URLEncoder.encode(currentTracksIds, UTF_8) }
 
-            deezerAddTrackURL(playlist.id, current50TracksIds, currentToken).doURLPost()
+            deezerAddTrackURL(createdPlaylist.id, serverCurrent50TracksIds, currentToken).doURLPost()
         }
     }
 
-    override fun getTracks(playlist: Playlist, externalTracks: List<Track>): List<Track> {
-        return externalTracks.mapNotNull { currentTrack ->
-            val currentNotFoundTracks = (Track.tracksNotFound[Apps.DEEZER] ?: emptyList()).map { it.id }
-            if (currentTrack.id in currentNotFoundTracks) {
+    override fun getTracks(createdPlaylist: Playlist, externalTracks: List<Track>): List<Track> {
+        return externalTracks.mapNotNull { externalTrack ->
+            val serverNotFoundTracks = (Track.tracksNotFound[Apps.DEEZER] ?: emptyList()).map { it.id }
+            if (externalTrack.id in serverNotFoundTracks) {
                 return@mapNotNull null
             }
 
-            UI.updateMessage("$EXPORTING_PLAYLIST ${playlist.title} <br>" +
+            UI.updateMessage("$EXPORTING_PLAYLIST ${createdPlaylist.title} <br>" +
                     "$SEARCHING_ON_SERVER $FROM_DEEZER: <br>" +
-                    "${Artist.getArtistsNames(currentTrack.artists)} -- ${currentTrack.name}")
+                    "${Artist.getArtistsNames(externalTrack.artists)} -- ${externalTrack.name}")
 
-            val existentTrack = Track.externalTrackIdWithSameTrackOnOtherApp[currentTrack.id]
-            if (existentTrack != null) {
-                return@mapNotNull existentTrack
+            val serverExistentTrack = Track.externalTrackIdWithSameTrackOnOtherApp[externalTrack.id]
+            if (serverExistentTrack != null) {
+                return@mapNotNull serverExistentTrack
             }
 
-            val foundTrack = searchTrack(currentTrack)
+            val serverFoundTrack = searchTrack(externalTrack)
                 ?: run {
-                    playlist.tracksNotFound.add(currentTrack)
-                    Track.tracksNotFound.getOrPut(Apps.DEEZER) { mutableListOf() }.add(currentTrack)
+                    createdPlaylist.tracksNotFound.add(externalTrack)
+                    Track.tracksNotFound.getOrPut(Apps.DEEZER) { mutableListOf() }.add(externalTrack)
                     return@mapNotNull null
                 }
 
-            val foundTrackArtist = (foundTrack[ARTIST] as HashMap<String, *>).let {
-                val artistName = it[NAME].toString()
-                val artistId = it[ID].toString()
-
-                Artist(artistName, artistId, Apps.DEEZER)
+            val serverFoundTrackArtist = serverFoundTrack.artist.let {
+                Artist(it.name, it.id, Apps.DEEZER)
             }
 
-            val foundTrackName = foundTrack[TITLE].toString()
-            val foundTrackId = foundTrack[ID].toString()
-            val foundTrackAlbumName = (foundTrack[ALBUM] as HashMap<String, *>).let { it[TITLE].toString() }
-
-            Track(listOf(foundTrackArtist), foundTrackName, foundTrackAlbumName, foundTrackId, isAvailable = true, Apps.DEEZER)
-                .also { Track.externalTrackIdWithSameTrackOnOtherApp[currentTrack.name] = it }
+            Track(listOf(serverFoundTrackArtist), serverFoundTrack.title, serverFoundTrack.album.title, serverFoundTrack.id, isAvailable = true, Apps.DEEZER)
+                .also { Track.externalTrackIdWithSameTrackOnOtherApp[externalTrack.name] = it }
         }
     }
 
-    override fun searchTrack(currentTrack: Track): HashMap<String, *>? {
-        val rawTrackName = URLEncoder.encode(currentTrack.name, UTF_8)
-        val rawTrackAlbumName = URLEncoder.encode(currentTrack.albumName, UTF_8)
+    override fun searchTrack(externalTrack: Track): DeezerTrack? {
+        val externalTrackName = externalTrack.name
+        val externalTrackNameWithouProblematicWords = getStringWithoutProblematicWords(externalTrack.name)
+        val externalTrackArtistsNames = externalTrack.artists.map { artist -> artist.name }
 
-        val candidateTracks = mutableSetOf<HashMap<String, *>>()
-        fun getOrAddAsCandidate(foundTrack: HashMap<String, *>?): HashMap<String, *>? {
-            return foundTrack?.let {
-                val foundTrackName = foundTrack[TITLE].toString()
-                val foundTrackArtist = (foundTrack[ARTIST] as HashMap<String, *>).let { artist -> artist[NAME].toString() }
+        val encodedServerTrackName = URLEncoder.encode(externalTrack.name, UTF_8)
+        val encodedServerTrackAlbumName = URLEncoder.encode(externalTrack.albumName, UTF_8)
 
-                val trackName = currentTrack.name
-                val trackNameWithouProblematicWords = getStringWithoutProblematicWords(currentTrack.name)
-                val trackArtists = currentTrack.artists.map { artist -> artist.name }
+        val candidateServerTracks = mutableSetOf<DeezerTrack>()
+        fun getOrAddAsCandidate(serverFoundTrack: DeezerTrack?): DeezerTrack? {
+            return serverFoundTrack?.let {
+                val serverFoundTrackName = serverFoundTrack.title
+                val serverFoundTrackArtistName = serverFoundTrack.artist.name
 
-                val isSameName = (foundTrackName.equals(trackName, true) || foundTrackName.equals(trackNameWithouProblematicWords, true))
-                val isSameArtist = trackArtists.any { trackArtist -> trackArtist.equals(foundTrackArtist, true) }
+                val isSameName = (serverFoundTrackName.equals(externalTrackName, true) || serverFoundTrackName.equals(externalTrackNameWithouProblematicWords, true))
+                val isSameArtist = externalTrackArtistsNames.any { trackArtist -> trackArtist.equals(serverFoundTrackArtistName, true) }
 
                 if (isSameName && isSameArtist) {
                     it
                 } else {
-                    candidateTracks.add(it)
+                    candidateServerTracks.add(it)
                     null
                 }
             }
         }
 
-        val foundTrackOnNameAlbumAndArtistSearch = searchTrackByNameArtistAndAlbum(currentTrack, rawTrackName, rawTrackAlbumName)
-        getOrAddAsCandidate(foundTrackOnNameAlbumAndArtistSearch)?.let { return it }
+        val serverFoundTrackOnNameAlbumAndArtistSearch = searchTrackByNameArtistAndAlbum(externalTrack, encodedServerTrackName, encodedServerTrackAlbumName)
+        getOrAddAsCandidate(serverFoundTrackOnNameAlbumAndArtistSearch)?.let { return it }
 
-        val foundTrackOnNameAndAlbumSearch = searchTrackByNameAndAlbum(currentTrack, rawTrackName, rawTrackAlbumName)
-        getOrAddAsCandidate(foundTrackOnNameAndAlbumSearch)?.let { return it }
+        val serverFoundTrackOnNameAndAlbumSearch = searchTrackByNameAndAlbum(externalTrack, encodedServerTrackName, encodedServerTrackAlbumName)
+        getOrAddAsCandidate(serverFoundTrackOnNameAndAlbumSearch)?.let { return it }
 
-        val foundTrackOnNameAndArtistSearch = searchTrackByNameAndArtist(currentTrack, rawTrackName)
-        getOrAddAsCandidate(foundTrackOnNameAndArtistSearch)?.let { return it }
+        val serverFoundTrackOnNameAndArtistSearch = searchTrackByNameAndArtist(externalTrack, encodedServerTrackName)
+        getOrAddAsCandidate(serverFoundTrackOnNameAndArtistSearch)?.let { return it }
 
-        val foundTrackOnNameSearch = searchTrackByName(currentTrack, rawTrackName)
-        getOrAddAsCandidate(foundTrackOnNameSearch)?.let { return it }
+        val serverFoundTrackOnNameSearch = searchTrackByName(externalTrack, encodedServerTrackName)
+        getOrAddAsCandidate(serverFoundTrackOnNameSearch)?.let { return it }
 
-        return getRightCandidateTrack(candidateTracks, currentTrack)
+        return getRightCandidateTrack(candidateServerTracks, externalTrack)
     }
 
-    private fun getRightCandidateTrack(candidateTracks: MutableSet<HashMap<String, *>>, currentTrack: Track): HashMap<String, *>? {
-        if (candidateTracks.size == 1) return candidateTracks.first()
+    private fun getRightCandidateTrack(candidateServerTracks: MutableSet<DeezerTrack>, externalTrack: Track): DeezerTrack? {
+        if (candidateServerTracks.size == 1) return candidateServerTracks.first()
 
-        val isRemix = currentTrack.name.contains(REMIX, true)
+        val isRemix = externalTrack.name.contains(REMIX, true)
 
-        fun isAnyOfArtistsTheSame(candidateTrack: HashMap<String, *>, isExatchArtistMatch: Boolean): Boolean {
-            val foundArtistName = (candidateTrack[ARTIST] as HashMap<String, *>).let { it[NAME].toString() }
+        fun isAnyOfArtistsTheSame(candidateServerTrack: DeezerTrack, isExactArtistMatch: Boolean): Boolean {
+            val candidateServerTrackArtistName = candidateServerTrack.artist.name
 
-            return currentTrack.artists.any { trackArtist ->
-                if (isExatchArtistMatch) {
-                    foundArtistName.equals(trackArtist.name, true)
+            return externalTrack.artists.any { trackArtist ->
+                if (isExactArtistMatch) {
+                    candidateServerTrackArtistName.equals(trackArtist.name, true)
                 } else {
-                    foundArtistName.contains(trackArtist.name, true) || trackArtist.name.contains(foundArtistName, true)
+                    candidateServerTrackArtistName.contains(trackArtist.name, true) ||
+                    trackArtist.name.contains(candidateServerTrackArtistName, true)
                 }
             }
         }
 
-        return candidateTracks.firstOrNull {
-            (it[ALBUM] as HashMap<String, *>)[TITLE].toString().equals(currentTrack.albumName, true)
+        return candidateServerTracks.firstOrNull {
+            it.album.title.equals(externalTrack.albumName, true)
         }
             ?:
         if (isRemix) {
-            candidateTracks.firstOrNull { candidateTrack ->
-                val trackName = candidateTrack[TITLE].toString()
-                val artistsNames = currentTrack.artists.map { it.name }
+            candidateServerTracks.firstOrNull { candidateServerTrack ->
+                val candidateServerTrackName = candidateServerTrack.title
+                val candidateServerTrackArtistsNames = externalTrack.artists.map { it.name }
 
-                artistsNames.any { trackName.contains(it, true) }
+                candidateServerTrackArtistsNames.any { candidateServerTrackName.contains(it, true) }
             }
         } else {
             null
         }
             ?:
-        candidateTracks.filter {
-            isAnyOfArtistsTheSame(it, isExatchArtistMatch = true)
+        candidateServerTracks.filter {
+            isAnyOfArtistsTheSame(it, isExactArtistMatch = true)
         }.ifEmpty {
-            candidateTracks.filter {
-                isAnyOfArtistsTheSame(it, isExatchArtistMatch = false)
+            candidateServerTracks.filter {
+                isAnyOfArtistsTheSame(it, isExactArtistMatch = false)
             }
-        }.minByOrNull { it[RANK] as Int }
+        }.minByOrNull { it.rank }
     }
 
-    override fun searchTrackByNameArtistAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? {
-        return currentTrack.artists.firstNotNullOfOrNull {
-            val rawTrackArtistName = URLEncoder.encode(it.name, UTF_8)
+    override fun searchTrackByNameArtistAndAlbum(externalTrack: Track, encodedTrackName: String, encodedServerTrackAlbumName: String): DeezerTrack? {
+        return externalTrack.artists.firstNotNullOfOrNull {
+            val encodedExternalTrackArtistName = URLEncoder.encode(it.name, UTF_8)
 
-            val searchURL = deezerSearchTrackURL(rawTrackName, rawTrackAlbumName, rawTrackArtistName)
-            val foundTracksObject = searchURL.getURLResponse()
+            val searchURL = deezerSearchTrackURL(encodedTrackName, encodedServerTrackAlbumName, encodedExternalTrackArtistName)
+            val serverFoundTracksObject = searchURL.getURLResponse<DeezerFoundTracks>()
 
-            getTrack(foundTracksObject, searchURL, currentTrack).first
+            getTrack(serverFoundTracksObject, searchURL, externalTrack).first
         }
     }
 
-    override fun searchTrackByNameAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? {
-        val searchURL = deezerSearchTrackURL(rawTrackName, rawTrackAlbumName)
-        val foundTracksObject = searchURL.getURLResponse()
+    override fun searchTrackByNameAndAlbum(externalTrack: Track, encodedTrackName: String, encodedServerTrackAlbumName: String): DeezerTrack? {
+        val searchURL = deezerSearchTrackURL(encodedTrackName, encodedServerTrackAlbumName)
+        val serverFoundTracksObject = searchURL.getURLResponse<DeezerFoundTracks>()
 
-        return getTrack(foundTracksObject, searchURL, currentTrack).first
+        return getTrack(serverFoundTracksObject, searchURL, externalTrack).first
     }
 
-    override fun searchTrackByNameAndArtist(currentTrack: Track, trackRawName: String): HashMap<String, *>? {
-        fun doSearch(considerSameAlbum: Boolean): HashMap<String, *>? {
-            return currentTrack.artists.firstNotNullOfOrNull {
-                val trackRawArtistName = URLEncoder.encode(it.name, UTF_8)
+    override fun searchTrackByNameAndArtist(externalTrack: Track, encodedTrackName: String): DeezerTrack? {
+        fun doSearch(considerSameAlbum: Boolean): DeezerTrack? {
+            return externalTrack.artists.firstNotNullOfOrNull {
+                val encodedExternalTrackArtistName = URLEncoder.encode(it.name, UTF_8)
 
-                val searchURL = deezerSearchTrackURL(trackRawName, givenArtistName = trackRawArtistName)
-                val foundTracksObject = searchURL.getURLResponse()
+                val searchURL = deezerSearchTrackURL(encodedTrackName, givenArtistName = encodedExternalTrackArtistName)
+                val serverFoundTracksObject = searchURL.getURLResponse<DeezerFoundTracks>()
 
-                getTrack(foundTracksObject, searchURL, currentTrack, considerSameAlbum).first
+                getTrack(serverFoundTracksObject, searchURL, externalTrack, considerSameAlbum).first
             }
         }
 
         return doSearch(considerSameAlbum = true) ?: doSearch(considerSameAlbum = false)
     }
 
-    override fun searchTrackByName(currentTrack: Track, trackRawName: String): HashMap<String, *>? {
-        val candidateTracks = mutableSetOf<HashMap<String, *>>()
+    override fun searchTrackByName(externalTrack: Track, encodedTrackName: String): DeezerTrack? {
+        val serverCandidateTracks = mutableSetOf<DeezerTrack>()
 
-        var searchURL: String? = deezerSearchTrackURL(trackRawName)
-        var rawCurrent25Tracks = searchURL?.getURLResponse()
+        var searchURL: String? = deezerSearchTrackURL(encodedTrackName)
+        var serverCurrent25Tracks = searchURL?.getURLResponse<DeezerFoundTracks>()
 
-        var rawTargetTrack: HashMap<String, *>? = null
-        while (rawTargetTrack == null) {
-            val result = getTrack(rawCurrent25Tracks!!, searchURL!!, currentTrack, considerSameAlbum = false)
+        var serverTargetTrack: DeezerTrack? = null
+        while (serverTargetTrack == null) {
+            val result = getTrack(serverCurrent25Tracks!!, searchURL!!, externalTrack, considerSameAlbum = false)
 
             UI.addInProgressDots()
 
-            val foundTrack = result.first
-            if (foundTrack != null) {
-                if (foundTrack[TITLE] == currentTrack.name) {
-                    rawTargetTrack = foundTrack
+            val serverFoundTrack = result.first
+            if (serverFoundTrack != null) {
+                if (serverFoundTrack.title == externalTrack.name) {
+                    serverTargetTrack = serverFoundTrack
                 } else {
-                    candidateTracks.add(foundTrack)
+                    serverCandidateTracks.add(serverFoundTrack)
                 }
             }
 
-            if (rawTargetTrack == null) {
-                searchURL = result.second[NEXT] as String?
+            if (serverTargetTrack == null) {
+                searchURL = result.second.next
                 if (searchURL == null) {
-                    rawTargetTrack = getRightCandidateTrack(candidateTracks, currentTrack)
+                    serverTargetTrack = getRightCandidateTrack(serverCandidateTracks, externalTrack)
                     break
+                } else {
+                    serverCurrent25Tracks = searchURL.getURLResponse<DeezerFoundTracks>()
                 }
-
-                rawCurrent25Tracks = searchURL.getURLResponse()
-//                val request = HttpRequest.get(URLPlusToken(next50Tracks, currentToken, isFirstParameterOfUrl = false))
-//                if (request.code() != 404) {
-//                    rawCurrent50Tracks = request.getRequestResponse()
-//                } else {
-//                    rawTargetTrack = candidateTracks.maxByOrNull { it[POPULARITY] as Int }
-//                    break
-//                }
             }
         }
 
-        return rawTargetTrack
+        return serverTargetTrack
     }
 
-    fun oldFunc(currentTrack: Track, trackRawName: String): HashMap<String, *>? {
-        val trackName = currentTrack.name
-        val artists = currentTrack.artists
-
-        var track: HashMap<String, *>? = null
-        val candidateTracks = mutableListOf<HashMap<String, *>>()
-
-        val trackRawSearchURL by lazy { deezerSearchURL(trackRawName) }
-        val trackSearchURL = deezerSearchTrackURL(trackRawName)
-        var foundTracksObject: HashMap<String, *>? = trackSearchURL.getURLResponse()
-
-        var current25FoundTracks = (foundTracksObject?.get(DATA) as List<HashMap<String, *>>?)
-            ?.ifEmpty { trackRawSearchURL.getURLResponse().also { foundTracksObject = it }[DATA] as List<HashMap<String, *>> }
-            ?.ifEmpty { redoQueryIfHasProblematicWords(trackSearchURL, Apps.DEEZER).also { foundTracksObject = it.second?.getURLResponse() }.first }
-            ?.ifEmpty { redoQueryIfHasProblematicWords(trackRawSearchURL, Apps.DEEZER).also { foundTracksObject = it.second?.getURLResponse() }.first }
-            ?.sortedByDescending { it[NAME].toString().equals(trackName, true) }
-
-        while (track == null) {
-            UI.addInProgressDots()
-
-            track = current25FoundTracks?.firstOrNull { foundTrack ->
-                val isAvailable = (foundTrack[READABLE] as Boolean)
-                if (!isAvailable) {
-                    return@firstOrNull false
-                }
-
-                val foundTrackName = foundTrack[TITLE].toString()
-                if (!foundTrackName.contains(trackName, true) && !trackName.contains(foundTrackName, true)) {
-                    return@firstOrNull false
-                }
-
-                val foundTrackArtist = foundTrack[ARTIST] as HashMap<String, *>
-                val foundTrackArtistName = foundTrackArtist[NAME].toString()
-
-                if (artists.any { it.name.contains(foundTrackArtistName, true) || foundTrackArtistName.contains(it.name, true) }) {
-                    candidateTracks.add(foundTrack)
-                }
-
-                artists.any { it.name.equals(foundTrackArtistName, true) } ||
-                        (trackName.contains("Remix", true) && artists.any { foundTrackName.contains(it.name, true) })
-            }
-
-            if (track == null) {
-                val next25TracksURL = (foundTracksObject?.get(NEXT) as String?) ?: break
-                foundTracksObject = next25TracksURL.getURLResponse()
-
-                current25FoundTracks = (foundTracksObject!![DATA] as List<HashMap<String, *>>)
-                    .sortedByDescending { it[NAME].toString().equals(trackName, true) }
-            }
-        }
-
-        return track ?: candidateTracks.minByOrNull { it[RANK] as Int }
-    }
-
-    private fun getTrack(foundTracksObject: HashMap<String, *>, searchURL: String, currentTrack: Track, considerSameAlbum: Boolean = true): Pair<HashMap<String, *>?, HashMap<String, *>> {
-        val rawFoundTracks = (foundTracksObject[DATA] as List<HashMap<String, *>>)
+    private fun getTrack(serverFoundTracksObject: DeezerFoundTracks, searchURL: String, externalTrack: Track, considerSameAlbum: Boolean = true): Pair<DeezerTrack?, DeezerFoundTracks> {
+        val serverFoundTracks = serverFoundTracksObject.data
             .ifEmpty { redoQueryIfHasProblematicWords(searchURL, Apps.DEEZER).first }
-            .ifEmpty { searchURL.withoutQuotes(onlyTrackName = true).getURLResponse()[DATA] as List<HashMap<String, *>> }
+            .ifEmpty { searchURL.withoutQuotes(onlyTrackName = true).getURLResponse<DeezerFoundTracks>().data }
             .ifEmpty { redoQueryIfHasProblematicWords(searchURL.withoutQuotes(onlyTrackName = true), Apps.DEEZER).first }
-            .sortedByDescending { it[TITLE].toString().equals(currentTrack.name, true) }
+            .sortedByDescending { it.title.equals(externalTrack.name, true) }
+            as List<DeezerTrack>
 
-        return findTrackWithSameArtistAndAlbum(rawFoundTracks, currentTrack, considerSameAlbum) to foundTracksObject
+        return findTrackWithSameArtistAndAlbum(serverFoundTracks, externalTrack, considerSameAlbum) to serverFoundTracksObject
     }
 
-    private fun findTrackWithSameArtistAndAlbum(foundTracks: List<HashMap<String, *>>, currentTrack: Track, considerSameAlbum: Boolean): HashMap<String, *>? {
-        val isRemix by lazy {  currentTrack.name.contains(REMIX, true) }
-        val currentTrackAlbumName by lazy { currentTrack.albumName.trim() }
-        val currentTrackAlbumNameWithoutProblematicWords by lazy { getStringWithoutProblematicWords(currentTrack.albumName, isToEncode = false).trim() }
+    private fun findTrackWithSameArtistAndAlbum(serverFoundTracks: List<DeezerTrack>, externalTrack: Track, considerSameAlbum: Boolean): DeezerTrack? {
+        val isRemix by lazy {  externalTrack.name.contains(REMIX, true) }
+        val externalTrackAlbumName by lazy { externalTrack.albumName.trim() }
+        val externalTrackAlbumNameWithoutProblematicWords by lazy { getStringWithoutProblematicWords(externalTrack.albumName, isToEncode = false).trim() }
 
-        return foundTracks.firstOrNull { foundTrack ->
-            val foundTrackArtist = foundTrack[ARTIST] as HashMap<String, *>
+        return serverFoundTracks.firstOrNull { serverFoundTrack ->
+            val serverFoundTrackArtist = serverFoundTrack.artist
 
             if (considerSameAlbum) {
-                isSameAlbum(foundTrack, currentTrackAlbumName, currentTrackAlbumNameWithoutProblematicWords)
+                isSameAlbum(serverFoundTrack, externalTrackAlbumName, externalTrackAlbumNameWithoutProblematicWords)
             } else {
                 true
             }
                     &&
-            isSameArtist(foundTrackArtist, foundTrack, currentTrack, isRemix)
+            isSameArtist(serverFoundTrackArtist, serverFoundTrack, externalTrack, isRemix)
         }
     }
 
-    private fun isSameAlbum(foundTrack: HashMap<String, *>, currentTrackAlbumName: String, currentTrackAlbumNameWithoutProblematicWords: String): Boolean {
-        val foundTrackAlbumName = (foundTrack[ALBUM] as HashMap<String, *>).let { it[TITLE].toString() }.trim()
-        val foundTrackAlbumNameWithoutProblematicWords by lazy { getStringWithoutProblematicWords(foundTrackAlbumName, isToEncode = false).trim() }
+    private fun isSameAlbum(serverFoundTrack: DeezerTrack, externalTrackAlbumName: String, externalTrackAlbumNameWithoutProblematicWords: String): Boolean {
+        val serverFoundTrackAlbumName = serverFoundTrack.album.title.trim()
+        val serverFoundTrackAlbumNameWithoutProblematicWords by lazy { getStringWithoutProblematicWords(serverFoundTrackAlbumName, isToEncode = false).trim() }
 
-        return foundTrackAlbumName.equals(currentTrackAlbumName, true) ||
-        foundTrackAlbumName.equals(currentTrackAlbumNameWithoutProblematicWords, true) ||
-        foundTrackAlbumNameWithoutProblematicWords.equals(currentTrackAlbumName, true) ||
-        foundTrackAlbumNameWithoutProblematicWords.equals(currentTrackAlbumNameWithoutProblematicWords, true)
+        return serverFoundTrackAlbumName.equals(externalTrackAlbumName, true) ||
+        serverFoundTrackAlbumName.equals(externalTrackAlbumNameWithoutProblematicWords, true) ||
+        serverFoundTrackAlbumNameWithoutProblematicWords.equals(externalTrackAlbumName, true) ||
+        serverFoundTrackAlbumNameWithoutProblematicWords.equals(externalTrackAlbumNameWithoutProblematicWords, true)
     }
 
-    private fun isSameArtist(foundTrackArtist: HashMap<String, *>, foundTrack: HashMap<String, *>, currentTrack: Track, isRemix: Boolean): Boolean {
-        val artistName = foundTrackArtist[NAME].toString()
+    private fun isSameArtist(serverFoundTrackArtist: DeezerArtist, serverFoundTrack: DeezerTrack, externalTrack: Track, isRemix: Boolean): Boolean {
+        val serverFoundTrackArtistName = serverFoundTrackArtist.name
 
-        return currentTrack.artists.any { it.name.contains(artistName, true) || artistName.contains(it.name, true) } ||
-        isRemix && foundTrack[NAME].toString().contains(artistName, true)
+        return externalTrack.artists.any { it.name.contains(serverFoundTrackArtistName, true) || serverFoundTrackArtistName.contains(it.name, true) } ||
+        isRemix && serverFoundTrack.title.contains(serverFoundTrackArtistName, true)
     }
 }

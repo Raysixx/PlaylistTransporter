@@ -1,6 +1,7 @@
 package app.apps.file
 
 import app.App
+import model.JsonUser
 
 @Suppress("EnumEntryName")
 open class FileApp: App() {
@@ -30,9 +31,9 @@ open class FileApp: App() {
     override val appId: String = ""
     override val secretKey: String = ""
     override val redirectUri: String = ""
-    override var currentCountry: String? = null
+    override var user: JsonUser? = null
 
-    override fun fillCurrentCountry(currentToken: String) {}
+    override fun fillUser(currentToken: String) {}
     override fun getToken(urlRedirected: String): String = ""
 
     override val scopes: String = ""

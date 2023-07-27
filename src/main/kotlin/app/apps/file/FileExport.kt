@@ -5,7 +5,7 @@ import client.isSeparateFilesByPlaylist
 import client.playlistTracksPerFile
 import client.saveAs
 import client.saveWithName
-import exporter.Exporter
+import app.Exporter
 import model.Artist
 import model.Playlist
 import model.Track
@@ -15,6 +15,7 @@ import java.io.FileWriter
 import java.io.PrintWriter
 import kotlin.math.ceil
 import app.apps.file.FileApp.Companion.SupportedExtensions
+import model.JsonTrack
 
 @Suppress("MoveLambdaOutsideParentheses")
 object FileExport: FileApp(), Exporter {
@@ -159,11 +160,11 @@ object FileExport: FileApp(), Exporter {
     }
 
     override fun addPlaylists(externalPlaylists: List<Playlist>, userId: String) {}
-    override fun addTracks(playlist: Playlist, externalTracks: List<Track>) {}
-    override fun getTracks(playlist: Playlist, externalTracks: List<Track>) = emptyList<Track>()
-    override fun searchTrack(currentTrack: Track): HashMap<String, *>? = null
-    override fun searchTrackByNameArtistAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? = null
-    override fun searchTrackByNameAndAlbum(currentTrack: Track, rawTrackName: String, rawTrackAlbumName: String): HashMap<String, *>? = null
-    override fun searchTrackByNameAndArtist(currentTrack: Track, trackRawName: String): HashMap<String, *>? = null
-    override fun searchTrackByName(currentTrack: Track, trackRawName: String): HashMap<String, *>? = null
+    override fun addTracks(createdPlaylist: Playlist, externalTracks: List<Track>) {}
+    override fun getTracks(createdPlaylist: Playlist, externalTracks: List<Track>) = emptyList<Track>()
+    override fun searchTrack(externalTrack: Track): JsonTrack? = null
+    override fun searchTrackByNameArtistAndAlbum(externalTrack: Track, encodedTrackName: String, encodedServerTrackAlbumName: String): JsonTrack? = null
+    override fun searchTrackByNameAndAlbum(externalTrack: Track, encodedTrackName: String, encodedServerTrackAlbumName: String): JsonTrack? = null
+    override fun searchTrackByNameAndArtist(externalTrack: Track, encodedTrackName: String): JsonTrack? = null
+    override fun searchTrackByName(externalTrack: Track, encodedTrackName: String): JsonTrack? = null
 }

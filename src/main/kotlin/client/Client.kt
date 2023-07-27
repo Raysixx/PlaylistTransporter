@@ -9,8 +9,8 @@ import client.Utils.Companion.removeWindowsInvalidCharacters
 import app.apps.file.FileExport
 import app.apps.file.FileImport
 import model.Playlist
-import exporter.Exporter
-import importer.Importer
+import app.Exporter
+import app.Importer
 import client.Utils.Companion.waitForCurrentActionDefinition
 import server.Server
 import ui.UI
@@ -42,7 +42,6 @@ enum class Action(val importAndExportFunction: Pair<Importer, Exporter>) {
     FILE_TO_SPOTIFY(FileImport to SpotifyExport)
 }
 
-@Suppress("ControlFlowWithEmptyBody")
 fun main(args: Array<String>) {
     try {
         treatArgs(args)

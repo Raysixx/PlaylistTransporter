@@ -1,7 +1,12 @@
 package app.apps.spotify
 
 import app.App
+import app.apps.deezer.DeezerUser
+import app.apps.deezer.deezerGetUserURL
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.github.kevinsawicki.http.HttpRequest
+import model.JsonUser
 import org.json.JSONObject
 import server.Server
 import ui.UI
@@ -16,21 +21,18 @@ open class SpotifyApp: App() {
     override val secretKey: String = "3a3138c6fd1548c08ff9b5f7c99f1e03"
     override val redirectUri: String = "http://localhost:5001"
 
-    override var currentCountry: String? = null
-    override fun fillCurrentCountry(currentToken: String) {
-        val user = URLPlusToken(spotifyGetUserURL(), currentToken).getURLResponse()
-
-        currentCountry = user[COUNTRY] as String
+    override var user: JsonUser? = null
+    override fun fillUser(currentToken: String) {
+        user = HttpRequest.get(URLPlusToken(spotifyGetUserURL(), currentToken)).body().let {
+            jacksonObjectMapper().readValue<SpotifyUser>(it)
+        }
     }
 
-    @Suppress("SimpleRedundantLet")
     override fun getToken(urlRedirected: String): String {
         val code = getCode(urlRedirected)
-        val tokenRequest = HttpRequest.post(spotifyGetTempTokenURL()).send(spotifyGetTempTokenPostBodyTemplate(code)).body() as String
-        val tokenRequestMap = JSONObject(tokenRequest).toMap()
-        val token = tokenRequestMap.entries.first { it.key == ACCESS_TOKEN }.value
+        val tokenResponse = spotifyGetTempTokenURL().doURLPostWith<SpotifyToken>(spotifyGetTempTokenPostBodyTemplate(code))
 
-        return token.toString()
+        return tokenResponse.token
     }
 
     override fun generateToken() {

@@ -1,6 +1,7 @@
 package app
 
 import client.Utils
+import model.JsonUser
 
 interface AppInterface {
 
@@ -17,8 +18,8 @@ interface AppInterface {
 
     var operation: Operation?
 
-    var currentCountry: String?
-    fun fillCurrentCountry(currentToken: String)
+    var user: JsonUser?
+    fun fillUser(currentToken: String)
 
     fun generateToken()
     fun getToken(urlRedirected: String): String

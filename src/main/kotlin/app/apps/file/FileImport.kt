@@ -2,13 +2,15 @@ package app.apps.file
 
 import app.AppInterface
 import client.Apps
-import importer.Importer
+import app.Importer
 import model.Artist
 import model.Playlist
 import model.Track
 import java.io.File
 import app.apps.file.FileApp.Companion.SupportedExtensions
 import client.playlistToImport
+import model.JsonFoundPlaylists
+import model.JsonFoundTracks
 import ui.UI
 import kotlin.system.exitProcess
 
@@ -149,6 +151,6 @@ object FileImport: FileApp(), Importer {
         }
     }
 
-    override fun fillPlaylists(rawPlaylistsMap: HashMap<String, *>) {}
-    override fun getTracks(playlistTitle: String, playlistRawTracks: HashMap<String, *>): List<Track> = emptyList()
+    override fun fillPlaylists(serverFoundPlaylists: JsonFoundPlaylists) {}
+    override fun getTracks(serverPlaylistTitle: String, serverPlaylistServerTracks: JsonFoundTracks): List<Track> = emptyList()
 }
